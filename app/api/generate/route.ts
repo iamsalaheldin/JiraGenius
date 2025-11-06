@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
         storyTitle: data.storyTitle,
         description: data.description,
         acceptanceCriteria: data.acceptanceCriteria,
+        additionalContext: data.additionalContext,
         modelConfig: data.modelConfig,
         provider,
         existingTestCases: data.existingTestCases,

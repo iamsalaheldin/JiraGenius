@@ -8,6 +8,7 @@ export interface GenerateTestCasesParams {
   storyTitle: string;
   description: string;
   acceptanceCriteria?: string;
+  additionalContext?: string;
   modelConfig: ModelConfig;
   provider?: string;
   existingTestCases?: TestCase[];
@@ -94,10 +95,14 @@ export async function generateTestCases(
  * Build the prompt for test case generation
  */
 function buildPrompt(params: GenerateTestCasesParams): string {
-  const { storyTitle, description, acceptanceCriteria, existingTestCases } = params;
+  const { storyTitle, description, acceptanceCriteria, additionalContext, existingTestCases } = params;
   
   const existingTestCasesSection = existingTestCases && existingTestCases.length > 0
     ? `\n\nIMPORTANT: The following test cases have already been generated. Please generate ADDITIONAL test cases that are DIFFERENT from these existing ones. Focus on scenarios that haven't been covered yet:\n\n${JSON.stringify(existingTestCases, null, 2)}\n\nGenerate NEW test cases that complement the existing ones. Do not duplicate or repeat the existing test cases.`
+    : "";
+  
+  const additionalContextSection = additionalContext && additionalContext.trim()
+    ? `\n\nAdditional Context from Attached Files:\n${additionalContext}\n\nUse this additional context to better understand the requirements, technical specifications, or related documentation that may help in creating more comprehensive and accurate test cases.`
     : "";
   
   return `You are a QA engineer creating structured test cases for a user story.
@@ -107,7 +112,7 @@ User Story: ${storyTitle}
 Description:
 ${description}
 
-${acceptanceCriteria ? `Acceptance Criteria:\n${acceptanceCriteria}\n` : ""}${existingTestCasesSection}
+${acceptanceCriteria ? `Acceptance Criteria:\n${acceptanceCriteria}\n` : ""}${additionalContextSection}${existingTestCasesSection}
 
 Analyze the user story thoroughly and generate comprehensive test cases that cover all possible scenarios. Create detailed test cases with multiple steps and thorough validation for:
 - Happy path scenarios

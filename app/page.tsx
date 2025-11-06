@@ -19,12 +19,15 @@ export default function Home() {
   const [currentIssue, setCurrentIssue] = useState<ParsedIssue | null>(null);
   const [editedDescription, setEditedDescription] = useState<string>("");
   const [editedAcceptanceCriteria, setEditedAcceptanceCriteria] = useState<string>("");
+  const [fileContent, setFileContent] = useState<string>("");
 
   const handleIssueFetched = (issue: ParsedIssue) => {
     setCurrentIssue(issue);
     // Initialize edited values with fetched values
     setEditedDescription(issue.description || "");
     setEditedAcceptanceCriteria(issue.acceptanceCriteria || "");
+    // Clear file content when a new issue is fetched
+    setFileContent("");
     // Clear previous test cases when a new issue is fetched
     setTestCases([], issue.key);
   };
@@ -33,6 +36,10 @@ export default function Home() {
     setEditedDescription(description);
     setEditedAcceptanceCriteria(acceptanceCriteria);
     toast.success("Content updated successfully");
+  };
+
+  const handleFileContentChange = (content: string) => {
+    setFileContent(content);
   };
 
   const handleGenerate = async (config: ModelConfig, append: boolean = false) => {
@@ -52,6 +59,7 @@ export default function Home() {
           storyTitle: currentIssue.summary,
           description: editedDescription || currentIssue.description,
           acceptanceCriteria: editedAcceptanceCriteria || currentIssue.acceptanceCriteria || "",
+          additionalContext: fileContent || "",
           modelConfig: config,
           existingTestCases: append ? testCases : undefined,
         }),
@@ -185,6 +193,7 @@ export default function Home() {
           <IssueFetcher 
             onIssueFetched={handleIssueFetched}
             onContentChange={handleContentChange}
+            onFileContentChange={handleFileContentChange}
             savedDescription={editedDescription}
             savedAcceptanceCriteria={editedAcceptanceCriteria}
           />
