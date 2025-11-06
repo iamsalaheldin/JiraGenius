@@ -1,0 +1,153 @@
+"use client";
+
+import { useState } from "react";
+import { useTestCaseStore } from "@/store/testcase-store";
+import { TestCaseCard } from "./testcase-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { downloadCSV } from "@/lib/csv-export";
+import { downloadJSON } from "@/lib/json-export";
+import { TestCase, ModelConfig } from "@/lib/schemas";
+import { FileJson, FileSpreadsheet, Plus, Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+interface TestCaseListProps {
+  issueKey?: string;
+  onGenerateMore?: (config: ModelConfig) => Promise<void>;
+}
+
+export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
+  const { testCases, addTestCase } = useTestCaseStore();
+  const [isGeneratingMore, setIsGeneratingMore] = useState(false);
+
+  const handleAddTestCase = () => {
+    const newTestCase: TestCase = {
+      id: `TC-${Date.now()}`,
+      title: "New Test Case",
+      preconditions: "",
+      steps: [
+        {
+          id: `step-${Date.now()}`,
+          action: "",
+          expectedResult: "",
+        },
+      ],
+      priority: "medium",
+    };
+    addTestCase(newTestCase);
+  };
+
+  const handleExportCSV = () => {
+    const filename = issueKey 
+      ? `test-cases-${issueKey}-${Date.now()}.csv`
+      : `test-cases-${Date.now()}.csv`;
+    downloadCSV(testCases, filename);
+  };
+
+  const handleExportJSON = () => {
+    const filename = issueKey
+      ? `test-cases-${issueKey}-${Date.now()}.json`
+      : `test-cases-${Date.now()}.json`;
+    downloadJSON(testCases, filename);
+  };
+
+  const handleGenerateMore = async () => {
+    if (!onGenerateMore) {
+      toast.error("Generate function not available");
+      return;
+    }
+
+    setIsGeneratingMore(true);
+    try {
+      await onGenerateMore({});
+    } catch (error) {
+      // Error is already handled in the parent component
+    } finally {
+      setIsGeneratingMore(false);
+    }
+  };
+
+  if (testCases.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle>Generated Test Cases</CardTitle>
+              <CardDescription>
+                {testCases.length} test case{testCases.length !== 1 ? "s" : ""} generated
+                {issueKey && ` for ${issueKey}`}
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleAddTestCase}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Test Case
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <FileSpreadsheet className="h-4 w-4 mr-1" />
+                Export CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportJSON}>
+                <FileJson className="h-4 w-4 mr-1" />
+                Export JSON
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Review and edit the generated test cases below. You can reorder steps, add/remove steps,
+            change priorities, and export to CSV or JSON when ready.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-4">
+        {testCases.map((testCase) => (
+          <TestCaseCard key={testCase.id} testCase={testCase} />
+        ))}
+      </div>
+
+      <Card className="border-dashed">
+        <CardContent className="flex items-center justify-center py-8">
+          <div className="text-center space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Need more test cases?
+            </p>
+            <div className="flex gap-2 justify-center">
+              {onGenerateMore && (
+                <Button 
+                  variant="default" 
+                  onClick={handleGenerateMore}
+                  disabled={isGeneratingMore}
+                >
+                  {isGeneratingMore ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate More Test Cases
+                    </>
+                  )}
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleAddTestCase}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Manual Test Case
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
