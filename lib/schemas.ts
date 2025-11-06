@@ -31,6 +31,7 @@ export const GenerateRequestSchema = z.object({
   storyTitle: z.string().min(1, "Story title is required"),
   description: z.string().min(1, "Description is required"),
   acceptanceCriteria: z.string().optional().default(""),
+  additionalContext: z.string().optional().default(""),
   modelConfig: ModelConfigSchema.optional().default({}),
   existingTestCases: z.array(TestCaseSchema).optional(),
 });

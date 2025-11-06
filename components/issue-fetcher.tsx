@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, CheckCircle2, Edit2, Save, X } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Edit2, Save, X, Upload, FileText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 const issueKeySchema = z.object({
   issueKey: z.string().min(1, "Issue key is required").regex(/^[A-Z]+-\d+$/i, "Invalid issue key format (e.g., PROJ-123)"),
@@ -24,13 +25,27 @@ type IssueKeyForm = z.infer<typeof issueKeySchema>;
 interface IssueFetcherProps {
   onIssueFetched: (issue: ParsedIssue) => void;
   onContentChange?: (description: string, acceptanceCriteria: string) => void;
+  onFileContentChange?: (content: string) => void;
   savedDescription?: string;
   savedAcceptanceCriteria?: string;
 }
 
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  status: "uploading" | "success" | "error";
+  error?: string;
+  content?: string;
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_FILE_TYPES = [".pdf", ".docx", ".txt"];
+
 export function IssueFetcher({ 
   onIssueFetched, 
   onContentChange,
+  onFileContentChange,
   savedDescription,
   savedAcceptanceCriteria 
 }: IssueFetcherProps) {
@@ -41,6 +56,8 @@ export function IssueFetcher({
   const [isEditing, setIsEditing] = useState(false);
   const [description, setDescription] = useState("");
   const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Sync with saved values when they change externally
   useEffect(() => {
@@ -94,6 +111,11 @@ export function IssueFetcher({
       const initialAC = savedAcceptanceCriteria !== undefined ? savedAcceptanceCriteria : (result.issue.acceptanceCriteria || "");
       setDescription(initialDesc);
       setAcceptanceCriteria(initialAC);
+      // Clear uploaded files when fetching new issue
+      setUploadedFiles([]);
+      if (onFileContentChange) {
+        onFileContentChange("");
+      }
       onIssueFetched(result.issue);
       setError(null);
     } catch (err) {
@@ -102,6 +124,155 @@ export function IssueFetcher({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const validateFile = (file: File): string | null => {
+    const fileName = file.name.toLowerCase();
+    const isValidType = ALLOWED_FILE_TYPES.some((ext) => fileName.endsWith(ext));
+    
+    if (!isValidType) {
+      return `Invalid file type. Only ${ALLOWED_FILE_TYPES.join(", ")} files are allowed.`;
+    }
+    
+    if (file.size > MAX_FILE_SIZE) {
+      return `File size exceeds 10MB limit.`;
+    }
+    
+    return null;
+  };
+
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newFiles: UploadedFile[] = [];
+    const filesToUpload: File[] = [];
+
+    // Validate all files first
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const validationError = validateFile(file);
+      
+      if (validationError) {
+        toast.error(`${file.name}: ${validationError}`);
+        continue;
+      }
+
+      const fileId = `${Date.now()}-${i}-${file.name}`;
+      newFiles.push({
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        status: "uploading",
+      });
+      filesToUpload.push(file);
+    }
+
+    if (newFiles.length === 0) return;
+
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+
+    // Upload files
+    try {
+      const formData = new FormData();
+      filesToUpload.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const response = await fetch("/api/files/extract", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Update all files with error
+        setUploadedFiles((prev) =>
+          prev.map((f) =>
+            newFiles.some((nf) => nf.id === f.id)
+              ? { ...f, status: "error" as const, error: result.error || "Failed to extract text" }
+              : f
+          )
+        );
+        toast.error(result.error || "Failed to extract text from files");
+        return;
+      }
+
+      // Update files with success status and content
+      const extractedContent: string[] = [];
+      setUploadedFiles((prev) =>
+        prev.map((f) => {
+          const extractedFile = result.files?.find(
+            (ef: { filename: string }) => ef.filename === f.name
+          );
+          if (extractedFile) {
+            extractedContent.push(`--- File: ${f.name} ---\n${extractedFile.content}\n`);
+            return {
+              ...f,
+              status: "success" as const,
+              content: extractedFile.content,
+            };
+          }
+          return f;
+        })
+      );
+
+      // Combine all extracted content
+      const combinedContent = extractedContent.join("\n\n");
+      if (onFileContentChange) {
+        onFileContentChange(combinedContent);
+      }
+
+      if (result.errors && result.errors.length > 0) {
+        result.errors.forEach((err: string) => toast.warning(err));
+      } else {
+        toast.success(`Successfully extracted text from ${result.files?.length || 0} file(s)`);
+      }
+    } catch (err) {
+      setUploadedFiles((prev) =>
+        prev.map((f) =>
+          newFiles.some((nf) => nf.id === f.id)
+            ? {
+                ...f,
+                status: "error" as const,
+                error: err instanceof Error ? err.message : "Upload failed",
+              }
+            : f
+        )
+      );
+      toast.error("Failed to upload files");
+    }
+  };
+
+  const handleRemoveFile = (fileId: string) => {
+    setUploadedFiles((prev) => {
+      const remaining = prev.filter((f) => f.id !== fileId);
+      // Update combined content
+      const combinedContent = remaining
+        .filter((f) => f.status === "success" && f.content)
+        .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
+        .join("\n\n");
+      if (onFileContentChange) {
+        onFileContentChange(combinedContent);
+      }
+      return remaining;
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
   };
 
   return (
@@ -256,6 +427,97 @@ export function IssueFetcher({
                 </Button>
               </div>
             )}
+
+            {/* File Upload Section */}
+            <div className="mt-6 space-y-4 border-t pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-lg">Additional Context Files</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Upload PDF, DOCX, or TXT files to provide additional context for test case generation (max 10MB per file)
+                  </p>
+                </div>
+              </div>
+
+              {/* File Upload Area */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                }`}
+              >
+                <input
+                  type="file"
+                  id="file-upload"
+                  multiple
+                  accept=".pdf,.docx,.txt"
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer flex flex-col items-center gap-2"
+                >
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium text-primary">Click to upload</span>
+                    <span className="text-sm text-muted-foreground"> or drag and drop</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    PDF, DOCX, TXT up to 10MB each
+                  </p>
+                </label>
+              </div>
+
+              {/* Uploaded Files List */}
+              {uploadedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Uploaded Files:</h4>
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between p-3 bg-muted rounded-md"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(file.size / 1024).toFixed(2)} KB
+                              {file.status === "uploading" && (
+                                <span className="ml-2">• Uploading...</span>
+                              )}
+                              {file.status === "success" && (
+                                <span className="ml-2 text-green-600">• Extracted</span>
+                              )}
+                              {file.status === "error" && (
+                                <span className="ml-2 text-red-600">• Error</span>
+                              )}
+                            </p>
+                            {file.error && (
+                              <p className="text-xs text-red-600 mt-1">{file.error}</p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveFile(file.id)}
+                          className="flex-shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
