@@ -17,11 +17,22 @@ export default function Home() {
   const { setTestCases, testCases } = useTestCaseStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [currentIssue, setCurrentIssue] = useState<ParsedIssue | null>(null);
+  const [editedDescription, setEditedDescription] = useState<string>("");
+  const [editedAcceptanceCriteria, setEditedAcceptanceCriteria] = useState<string>("");
 
   const handleIssueFetched = (issue: ParsedIssue) => {
     setCurrentIssue(issue);
+    // Initialize edited values with fetched values
+    setEditedDescription(issue.description || "");
+    setEditedAcceptanceCriteria(issue.acceptanceCriteria || "");
     // Clear previous test cases when a new issue is fetched
     setTestCases([], issue.key);
+  };
+
+  const handleContentChange = (description: string, acceptanceCriteria: string) => {
+    setEditedDescription(description);
+    setEditedAcceptanceCriteria(acceptanceCriteria);
+    toast.success("Content updated successfully");
   };
 
   const handleGenerate = async (config: ModelConfig, append: boolean = false) => {
@@ -39,8 +50,8 @@ export default function Home() {
         body: JSON.stringify({
           issueKey: currentIssue.key,
           storyTitle: currentIssue.summary,
-          description: currentIssue.description,
-          acceptanceCriteria: currentIssue.acceptanceCriteria || "",
+          description: editedDescription || currentIssue.description,
+          acceptanceCriteria: editedAcceptanceCriteria || currentIssue.acceptanceCriteria || "",
           modelConfig: config,
           existingTestCases: append ? testCases : undefined,
         }),
@@ -171,7 +182,12 @@ export default function Home() {
       <main className="container mx-auto px-4 py-8 space-y-8">
         {/* Step 1: Fetch Issue */}
         <section>
-          <IssueFetcher onIssueFetched={handleIssueFetched} />
+          <IssueFetcher 
+            onIssueFetched={handleIssueFetched}
+            onContentChange={handleContentChange}
+            savedDescription={editedDescription}
+            savedAcceptanceCriteria={editedAcceptanceCriteria}
+          />
         </section>
 
         {/* Step 2: Generate Test Cases */}

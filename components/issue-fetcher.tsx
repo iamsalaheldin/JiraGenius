@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,10 +9,11 @@ import { ParsedIssue } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Edit2, Save, X } from "lucide-react";
 
 const issueKeySchema = z.object({
   issueKey: z.string().min(1, "Issue key is required").regex(/^[A-Z]+-\d+$/i, "Invalid issue key format (e.g., PROJ-123)"),
@@ -22,13 +23,36 @@ type IssueKeyForm = z.infer<typeof issueKeySchema>;
 
 interface IssueFetcherProps {
   onIssueFetched: (issue: ParsedIssue) => void;
+  onContentChange?: (description: string, acceptanceCriteria: string) => void;
+  savedDescription?: string;
+  savedAcceptanceCriteria?: string;
 }
 
-export function IssueFetcher({ onIssueFetched }: IssueFetcherProps) {
+export function IssueFetcher({ 
+  onIssueFetched, 
+  onContentChange,
+  savedDescription,
+  savedAcceptanceCriteria 
+}: IssueFetcherProps) {
   const { credentials } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchedIssue, setFetchedIssue] = useState<ParsedIssue | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [description, setDescription] = useState("");
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
+
+  // Sync with saved values when they change externally
+  useEffect(() => {
+    if (fetchedIssue && (savedDescription !== undefined || savedAcceptanceCriteria !== undefined)) {
+      if (savedDescription !== undefined) {
+        setDescription(savedDescription);
+      }
+      if (savedAcceptanceCriteria !== undefined) {
+        setAcceptanceCriteria(savedAcceptanceCriteria);
+      }
+    }
+  }, [savedDescription, savedAcceptanceCriteria, fetchedIssue]);
 
   const {
     register,
@@ -65,6 +89,11 @@ export function IssueFetcher({ onIssueFetched }: IssueFetcherProps) {
       }
 
       setFetchedIssue(result.issue);
+      // Initialize edited values with fetched values or saved values
+      const initialDesc = savedDescription !== undefined ? savedDescription : (result.issue.description || "");
+      const initialAC = savedAcceptanceCriteria !== undefined ? savedAcceptanceCriteria : (result.issue.acceptanceCriteria || "");
+      setDescription(initialDesc);
+      setAcceptanceCriteria(initialAC);
       onIssueFetched(result.issue);
       setError(null);
     } catch (err) {
@@ -145,21 +174,86 @@ export function IssueFetcher({ onIssueFetched }: IssueFetcherProps) {
               <p className="text-xl font-medium">{fetchedIssue.summary}</p>
             </div>
 
-            {fetchedIssue.description && (
-              <div>
-                <h4 className="font-semibold mb-2">Description:</h4>
-                <div className="bg-muted p-4 rounded-md whitespace-pre-wrap text-sm">
-                  {fetchedIssue.description}
-                </div>
-              </div>
-            )}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg">Content Details</h3>
+              {!isEditing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
 
-            {fetchedIssue.acceptanceCriteria && (
+            <div className="space-y-4">
+              {/* Description Section */}
               <div>
-                <h4 className="font-semibold mb-2">Acceptance Criteria:</h4>
-                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-md whitespace-pre-wrap text-sm">
-                  {fetchedIssue.acceptanceCriteria}
-                </div>
+                <Label htmlFor="description" className="font-semibold mb-2 block">Description:</Label>
+                {isEditing ? (
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Enter issue description..."
+                    className="min-h-32 font-mono text-sm"
+                  />
+                ) : (
+                  <div className="bg-muted p-4 rounded-md whitespace-pre-wrap text-sm min-h-32">
+                    {description || <span className="text-muted-foreground italic">No description provided</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* Acceptance Criteria Section */}
+              <div>
+                <Label htmlFor="acceptanceCriteria" className="font-semibold mb-2 block">Acceptance Criteria:</Label>
+                {isEditing ? (
+                  <Textarea
+                    id="acceptanceCriteria"
+                    value={acceptanceCriteria}
+                    onChange={(e) => setAcceptanceCriteria(e.target.value)}
+                    placeholder="Enter acceptance criteria..."
+                    className="min-h-32 font-mono text-sm"
+                  />
+                ) : (
+                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-md whitespace-pre-wrap text-sm min-h-32">
+                    {acceptanceCriteria || <span className="text-muted-foreground italic">No acceptance criteria provided</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Edit Controls */}
+            {isEditing && (
+              <div className="flex gap-2 justify-end pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Reset to saved values or original fetched values
+                    const resetDesc = savedDescription !== undefined ? savedDescription : (fetchedIssue?.description || "");
+                    const resetAC = savedAcceptanceCriteria !== undefined ? savedAcceptanceCriteria : (fetchedIssue?.acceptanceCriteria || "");
+                    setDescription(resetDesc);
+                    setAcceptanceCriteria(resetAC);
+                    setIsEditing(false);
+                  }}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (onContentChange) {
+                      onContentChange(description, acceptanceCriteria);
+                    }
+                    setIsEditing(false);
+                  }}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </Button>
               </div>
             )}
           </div>
