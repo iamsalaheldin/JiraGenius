@@ -9,6 +9,18 @@ export const TestStepSchema = z.object({
 
 export type TestStep = z.infer<typeof TestStepSchema>;
 
+// Requirement Schema
+export const RequirementSchema = z.object({
+  id: z.string(),
+  source: z.enum(["user_story", "acceptance_criteria", "file", "confluence"]),
+  sourceId: z.string(),
+  text: z.string().min(1, "Requirement text is required"),
+  category: z.enum(["functional", "non-functional", "api", "flow", "edge_case"]),
+  priority: z.enum(["low", "medium", "high"]),
+});
+
+export type Requirement = z.infer<typeof RequirementSchema>;
+
 // Test Case Schema
 export const TestCaseSchema = z.object({
   id: z.string(),
@@ -16,6 +28,7 @@ export const TestCaseSchema = z.object({
   preconditions: z.string().optional().default(""),
   steps: z.array(TestStepSchema).min(1, "At least one step is required"),
   priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
+  requirementIds: z.array(z.string()).optional().default([]),
 });
 
 export type TestCase = z.infer<typeof TestCaseSchema>;
@@ -44,6 +57,7 @@ export const GenerateRequestSchema = z.object({
   images: z.array(ImageDataSchema).optional(),
   modelConfig: ModelConfigSchema.optional().default({}),
   existingTestCases: z.array(TestCaseSchema).optional(),
+  requirements: z.array(RequirementSchema).optional(),
 });
 
 export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;

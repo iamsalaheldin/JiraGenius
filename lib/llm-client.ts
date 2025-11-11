@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { TestCase, TestCaseSchema, ModelConfig } from "./schemas";
+import { TestCase, TestCaseSchema, ModelConfig, Requirement } from "./schemas";
 import { z } from "zod";
 
 export interface ImageData {
@@ -19,6 +19,7 @@ export interface GenerateTestCasesParams {
   modelConfig: ModelConfig;
   provider?: string;
   existingTestCases?: TestCase[];
+  requirements?: Requirement[];
 }
 
 interface LLMResponse {
@@ -102,10 +103,20 @@ export async function generateTestCases(
  * Build the prompt for test case generation
  */
 function buildPrompt(params: GenerateTestCasesParams): string {
-  const { storyTitle, description, acceptanceCriteria, additionalContext, existingTestCases } = params;
+  const { storyTitle, description, acceptanceCriteria, additionalContext, existingTestCases, requirements } = params;
   
   const existingTestCasesSection = existingTestCases && existingTestCases.length > 0
     ? `\n\nIMPORTANT: The following test cases have already been generated. Please generate ADDITIONAL test cases that are DIFFERENT from these existing ones. Focus on scenarios that haven't been covered yet:\n\n${JSON.stringify(existingTestCases, null, 2)}\n\nGenerate NEW test cases that complement the existing ones. Do not duplicate or repeat the existing test cases.`
+    : "";
+
+  const requirementsSection = requirements && requirements.length > 0
+    ? `\n\n⚠️ CRITICAL REQUIREMENTS TO COVER:\n\nThe following requirements have been extracted and MUST be covered by the generated test cases. Each requirement should have at least one test case that validates it:\n\n${requirements.map((req, idx) => {
+        const sourceLabel = req.source === "user_story" ? "User Story" 
+          : req.source === "acceptance_criteria" ? "Acceptance Criteria"
+          : req.source === "file" ? "File"
+          : "Confluence";
+        return `${idx + 1}. [${req.id}] (${sourceLabel} - ${req.category} - ${req.priority} priority)\n   ${req.text}`;
+      }).join("\n\n")}\n\nIMPORTANT INSTRUCTIONS FOR REQUIREMENTS:\n- You MUST create test cases that explicitly cover EACH of the requirements listed above\n- For each requirement, create at least one test case that validates it\n- Include the requirement ID in the requirementIds array of the test case that covers it\n- If a test case covers multiple requirements, include all relevant requirement IDs\n- Prioritize test cases based on requirement priority (high priority requirements need high priority test cases)\n- Ensure comprehensive coverage - no requirement should be left without a test case\n\n`
     : "";
   
   const additionalContextSection = additionalContext && additionalContext.trim()
@@ -129,13 +140,13 @@ User Story: ${storyTitle}
 Description:
 ${description}
 
-${acceptanceCriteria ? `Acceptance Criteria:\n${acceptanceCriteria}\n` : ""}${additionalContextSection}${existingTestCasesSection}
+${acceptanceCriteria ? `Acceptance Criteria:\n${acceptanceCriteria}\n` : ""}${requirementsSection}${additionalContextSection}${existingTestCasesSection}
 
-Analyze the user story thoroughly${additionalContext && additionalContext.includes("--- Confluence Page ---") ? " AND the Confluence page content" : ""} and generate comprehensive test cases that cover all possible scenarios. Create detailed test cases with multiple steps and thorough validation for:
+Analyze the user story thoroughly${additionalContext && additionalContext.includes("--- Confluence Page ---") ? " AND the Confluence page content" : ""}${requirements && requirements.length > 0 ? " AND the requirements listed above" : ""} and generate comprehensive test cases that cover all possible scenarios. Create detailed test cases with multiple steps and thorough validation for:
 - Happy path scenarios
 - Edge cases and boundary conditions
 - Error conditions and negative test cases
-- All acceptance criteria
+- All acceptance criteria${requirements && requirements.length > 0 ? "\n- **ALL requirements listed above (CRITICAL - each requirement must have at least one test case)**" : ""}
 - Any implicit requirements or dependencies${additionalContext && additionalContext.includes("--- Confluence Page ---") ? "\n- **ALL scenarios, APIs, flows, and requirements described in the Confluence page content above**" : ""}
 
 Return your response as a valid JSON array matching this exact schema:
@@ -153,7 +164,8 @@ Return your response as a valid JSON array matching this exact schema:
           "expectedResult": "string (the expected outcome)"
         }
       ],
-      "priority": "low" | "medium" | "high"
+      "priority": "low" | "medium" | "high",
+      "requirementIds": "array of strings (optional, can be empty array [])"
     }
   ]
 }
@@ -167,7 +179,8 @@ Important:
 - Make test cases specific, detailed, and thorough
 - Include preconditions where applicable
 - Set appropriate priority levels (low, medium, high) based on test case importance
-- Generate as many test cases as needed to ensure complete coverage of all scenarios${existingTestCases && existingTestCases.length > 0 ? "\n- Focus on generating NEW test cases that cover different scenarios than the existing ones" : ""}`;
+- Generate as many test cases as needed to ensure complete coverage of all scenarios${existingTestCases && existingTestCases.length > 0 ? "\n- Focus on generating NEW test cases that cover different scenarios than the existing ones" : ""}${requirements && requirements.length > 0 ? "\n- **CRITICAL: You MUST include the requirement ID(s) in the requirementIds array for each test case that covers a requirement. For example, if a test case covers requirement REQ-123, include ['REQ-123'] in the requirementIds field.**" : ""}
+- The requirementIds field should contain the IDs of requirements that the test case covers. If no requirements are provided, it can be an empty array [].`;
 }
 
 /**

@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
     console.log(`[API] Using provider: ${provider}`);
     console.log(`[API] Config:`, data.modelConfig);
 
+    console.log(`[API] Requirements provided: ${data.requirements?.length || 0}`);
+
     // Generate test cases
     const result = await generateTestCases(
       {
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
         modelConfig: data.modelConfig,
         provider,
         existingTestCases: data.existingTestCases,
+        requirements: data.requirements,
       },
       apiKey
     );
