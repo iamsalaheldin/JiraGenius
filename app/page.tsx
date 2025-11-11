@@ -20,6 +20,8 @@ export default function Home() {
   const [editedDescription, setEditedDescription] = useState<string>("");
   const [editedAcceptanceCriteria, setEditedAcceptanceCriteria] = useState<string>("");
   const [fileContent, setFileContent] = useState<string>("");
+  const [confluenceContent, setConfluenceContent] = useState<string>("");
+  const [confluenceImages, setConfluenceImages] = useState<Array<{ base64: string; mimeType: string; filename?: string }>>([]);
 
   const handleIssueFetched = (issue: ParsedIssue) => {
     setCurrentIssue(issue);
@@ -28,6 +30,9 @@ export default function Home() {
     setEditedAcceptanceCriteria(issue.acceptanceCriteria || "");
     // Clear file content when a new issue is fetched
     setFileContent("");
+    // Clear Confluence content when a new issue is fetched
+    setConfluenceContent("");
+    setConfluenceImages([]);
     // Clear previous test cases when a new issue is fetched
     setTestCases([], issue.key);
   };
@@ -39,7 +44,19 @@ export default function Home() {
   };
 
   const handleFileContentChange = (content: string) => {
+    // Content already includes Confluence content if present (combined in IssueFetcher)
     setFileContent(content);
+  };
+
+  const handleConfluenceContentChange = (content: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => {
+    setConfluenceContent(content);
+    if (images) {
+      setConfluenceImages(images);
+    }
+    // Combine with file content
+    const fileOnlyContent = fileContent.split("\n\n--- Confluence Page ---\n\n")[0] || fileContent;
+    const combinedContent = [fileOnlyContent, content].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
+    setFileContent(combinedContent);
   };
 
   const handleGenerate = async (config: ModelConfig, append: boolean = false) => {
@@ -47,6 +64,10 @@ export default function Home() {
       toast.error("Please fetch a Jira issue first");
       return;
     }
+
+    const additionalContext = fileContent || "";
+    console.log("[Generate] Additional context length:", additionalContext.length);
+    console.log("[Generate] Additional context preview:", additionalContext.substring(0, 200));
 
     try {
       const response = await fetch("/api/generate", {
@@ -57,9 +78,10 @@ export default function Home() {
         body: JSON.stringify({
           issueKey: currentIssue.key,
           storyTitle: currentIssue.summary,
-          description: editedDescription || currentIssue.description,
-          acceptanceCriteria: editedAcceptanceCriteria || currentIssue.acceptanceCriteria || "",
-          additionalContext: fileContent || "",
+          description: editedDescription,
+          acceptanceCriteria: editedAcceptanceCriteria,
+          additionalContext: additionalContext,
+          images: confluenceImages.length > 0 ? confluenceImages : undefined,
           modelConfig: config,
           existingTestCases: append ? testCases : undefined,
         }),
@@ -194,6 +216,7 @@ export default function Home() {
             onIssueFetched={handleIssueFetched}
             onContentChange={handleContentChange}
             onFileContentChange={handleFileContentChange}
+            onConfluenceContentChange={handleConfluenceContentChange}
             savedDescription={editedDescription}
             savedAcceptanceCriteria={editedAcceptanceCriteria}
           />
