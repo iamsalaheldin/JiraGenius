@@ -12,6 +12,7 @@ const envSchema = z.object({
   // LLM provider configuration
   LLM_PROVIDER: z.enum(["gemini", "openai", "anthropic"]).default("gemini"),
   GEMINI_API_KEY: optionalString,
+  GEMINI_MODEL: optionalString, // Optional: specify Gemini model name (e.g., "gemini-pro", "models/gemini-pro")
   OPENAI_API_KEY: optionalString,
   ANTHROPIC_API_KEY: optionalString,
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

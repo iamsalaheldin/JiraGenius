@@ -26,6 +26,7 @@ interface IssueFetcherProps {
   onIssueFetched: (issue: ParsedIssue) => void;
   onContentChange?: (description: string, acceptanceCriteria: string) => void;
   onFileContentChange?: (content: string) => void;
+  onConfluenceContentChange?: (content: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => void;
   savedDescription?: string;
   savedAcceptanceCriteria?: string;
 }
@@ -46,6 +47,7 @@ export function IssueFetcher({
   onIssueFetched, 
   onContentChange,
   onFileContentChange,
+  onConfluenceContentChange,
   savedDescription,
   savedAcceptanceCriteria 
 }: IssueFetcherProps) {
@@ -58,6 +60,12 @@ export function IssueFetcher({
   const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [confluenceUrl, setConfluenceUrl] = useState("");
+  const [confluenceContent, setConfluenceContent] = useState("");
+  const [confluenceTitle, setConfluenceTitle] = useState("");
+  const [isFetchingConfluence, setIsFetchingConfluence] = useState(false);
+  const [isEditingConfluence, setIsEditingConfluence] = useState(false);
+  const [confluenceError, setConfluenceError] = useState<string | null>(null);
 
   // Sync with saved values when they change externally
   useEffect(() => {
@@ -115,6 +123,13 @@ export function IssueFetcher({
       setUploadedFiles([]);
       if (onFileContentChange) {
         onFileContentChange("");
+      }
+      // Clear Confluence content when fetching new issue
+      setConfluenceUrl("");
+      setConfluenceContent("");
+      setConfluenceTitle("");
+      if (onConfluenceContentChange) {
+        onConfluenceContentChange("");
       }
       onIssueFetched(result.issue);
       setError(null);
@@ -218,7 +233,9 @@ export function IssueFetcher({
       );
 
       // Combine all extracted content
-      const combinedContent = extractedContent.join("\n\n");
+      const fileContent = extractedContent.join("\n\n");
+      // Combine with Confluence content
+      const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
       if (onFileContentChange) {
         onFileContentChange(combinedContent);
       }
@@ -248,15 +265,141 @@ export function IssueFetcher({
     setUploadedFiles((prev) => {
       const remaining = prev.filter((f) => f.id !== fileId);
       // Update combined content
-      const combinedContent = remaining
+      const fileContent = remaining
         .filter((f) => f.status === "success" && f.content)
         .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
         .join("\n\n");
+      // Combine with Confluence content
+      const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
       if (onFileContentChange) {
         onFileContentChange(combinedContent);
       }
       return remaining;
     });
+  };
+
+  const handleFetchConfluence = async () => {
+    if (!credentials) {
+      setConfluenceError("Not authenticated. Please log in first.");
+      return;
+    }
+
+    if (!confluenceUrl.trim()) {
+      setConfluenceError("Please enter a Confluence page URL");
+      return;
+    }
+
+    setIsFetchingConfluence(true);
+    setConfluenceError(null);
+
+    try {
+      const response = await fetch("/api/confluence/page", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: confluenceUrl.trim(),
+          auth: credentials,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        const errorMsg = result.error || `Failed to fetch Confluence page (HTTP ${response.status})`;
+        console.error("[Confluence] Fetch error:", errorMsg, result);
+        setConfluenceError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+      
+      if (!result.page) {
+        const errorMsg = "No page data received from server";
+        console.error("[Confluence] No page data:", result);
+        setConfluenceError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+
+      console.log("[Confluence] Fetched page:", result.page.title, "Content length:", result.page.content?.length);
+      
+      if (!result.page.content || result.page.content.trim().length === 0) {
+        const errorMsg = "Page content is empty";
+        setConfluenceError(errorMsg);
+        toast.warning(errorMsg);
+        return;
+      }
+      
+      setConfluenceTitle(result.page.title);
+      setConfluenceContent(result.page.content);
+      setIsEditingConfluence(false);
+      setConfluenceError(null);
+      
+      // Combine with file content
+      const fileContent = uploadedFiles
+        .filter((f) => f.status === "success" && f.content)
+        .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
+        .join("\n\n");
+      const combinedContent = [fileContent, result.page.content].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
+      
+      console.log("[Confluence] Combined content length:", combinedContent.length);
+      
+      if (onFileContentChange) {
+        onFileContentChange(combinedContent);
+      }
+      if (onConfluenceContentChange) {
+        // Skip images - only pass text content
+        onConfluenceContentChange(result.page.content, undefined);
+      }
+      
+      toast.success(`Successfully fetched Confluence page: ${result.page.title}`);
+    } catch (err) {
+      setConfluenceError(err instanceof Error ? err.message : "Failed to fetch Confluence page");
+      toast.error("Failed to fetch Confluence page");
+    } finally {
+      setIsFetchingConfluence(false);
+    }
+  };
+
+  const handleConfluenceContentSave = () => {
+    // Combine with file content
+    const fileContent = uploadedFiles
+      .filter((f) => f.status === "success" && f.content)
+      .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
+      .join("\n\n");
+    const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
+    
+    if (onFileContentChange) {
+      onFileContentChange(combinedContent);
+    }
+    if (onConfluenceContentChange) {
+      // Note: When editing, we don't have access to the original images
+      // So we pass undefined to keep existing images
+      onConfluenceContentChange(confluenceContent, undefined);
+    }
+    setIsEditingConfluence(false);
+    toast.success("Confluence content updated");
+  };
+
+  const handleRemoveConfluence = () => {
+    setConfluenceUrl("");
+    setConfluenceContent("");
+    setConfluenceTitle("");
+    setConfluenceError(null);
+    
+    // Update combined content (only file content now)
+    const fileContent = uploadedFiles
+      .filter((f) => f.status === "success" && f.content)
+      .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
+      .join("\n\n");
+    
+    if (onFileContentChange) {
+      onFileContentChange(fileContent);
+    }
+    if (onConfluenceContentChange) {
+      onConfluenceContentChange("", []);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -515,6 +658,126 @@ export function IssueFetcher({
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Confluence Page Section */}
+            <div className="mt-6 space-y-4 border-t pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-lg">Confluence Page</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Enter a Confluence page URL to include its content as additional context for test case generation
+                  </p>
+                </div>
+              </div>
+
+              {/* Confluence URL Input */}
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="confluenceUrl">Confluence Page URL</Label>
+                  <Input
+                    id="confluenceUrl"
+                    placeholder="https://domain.atlassian.net/wiki/spaces/SPACE/pages/123456/Page+Title"
+                    value={confluenceUrl}
+                    onChange={(e) => setConfluenceUrl(e.target.value)}
+                    disabled={isFetchingConfluence}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !isFetchingConfluence) {
+                        handleFetchConfluence();
+                      }
+                    }}
+                  />
+                  {confluenceError && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{confluenceError}</AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    onClick={handleFetchConfluence}
+                    disabled={isFetchingConfluence || !confluenceUrl.trim()}
+                  >
+                    {isFetchingConfluence ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Fetching...
+                      </>
+                    ) : (
+                      "Fetch Page"
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Fetched Confluence Content */}
+              {confluenceContent && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold">Page Content</h4>
+                      {confluenceTitle && (
+                        <p className="text-xs text-muted-foreground">{confluenceTitle}</p>
+                      )}
+                    </div>
+                    {!isEditingConfluence && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditingConfluence(true)}
+                        >
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveConfluence}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditingConfluence ? (
+                    <>
+                      <Textarea
+                        value={confluenceContent}
+                        onChange={(e) => setConfluenceContent(e.target.value)}
+                        placeholder="Confluence page content..."
+                        className="min-h-48 font-mono text-sm"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditingConfluence(false);
+                            // Reset to fetched content if needed
+                            // For now, keep edited content
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel
+                        </Button>
+                        <Button onClick={handleConfluenceContentSave}>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Changes
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-muted p-4 rounded-md whitespace-pre-wrap text-sm min-h-48">
+                      {confluenceContent || (
+                        <span className="text-muted-foreground italic">No content available</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -5,10 +5,18 @@ import { useTestCaseStore } from "@/store/testcase-store";
 import { TestCaseCard } from "./testcase-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { downloadCSV } from "@/lib/csv-export";
 import { downloadJSON } from "@/lib/json-export";
 import { TestCase, ModelConfig } from "@/lib/schemas";
-import { FileJson, FileSpreadsheet, Plus, Sparkles, Loader2 } from "lucide-react";
+import { FileJson, FileSpreadsheet, Plus, Sparkles, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface TestCaseListProps {
@@ -17,8 +25,9 @@ interface TestCaseListProps {
 }
 
 export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
-  const { testCases, addTestCase } = useTestCaseStore();
+  const { testCases, addTestCase, clearTestCases } = useTestCaseStore();
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
+  const [showClearDialog, setShowClearDialog] = useState(false);
 
   const handleAddTestCase = () => {
     const newTestCase: TestCase = {
@@ -67,6 +76,16 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
     }
   };
 
+  const handleClear = () => {
+    setShowClearDialog(true);
+  };
+
+  const handleConfirmClear = () => {
+    clearTestCases();
+    setShowClearDialog(false);
+    toast.success("All test cases cleared");
+  };
+
   if (testCases.length === 0) {
     return null;
   }
@@ -95,6 +114,10 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
               <Button variant="outline" size="sm" onClick={handleExportJSON}>
                 <FileJson className="h-4 w-4 mr-1" />
                 Export JSON
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleClear}>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Clear
               </Button>
             </div>
           </div>
@@ -147,6 +170,27 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear All Test Cases?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove all {testCases.length} test case{testCases.length !== 1 ? "s" : ""}. 
+              This action cannot be undone. Make sure you've exported your test cases if you need them later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowClearDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmClear}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear All
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -25,6 +25,15 @@ export const ModelConfigSchema = z.object({});
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 
+// Image Data Schema
+export const ImageDataSchema = z.object({
+  base64: z.string().min(1, "Base64 data is required"),
+  mimeType: z.string().min(1, "MIME type is required"),
+  filename: z.string().optional(),
+});
+
+export type ImageData = z.infer<typeof ImageDataSchema>;
+
 // Generate Request Schema
 export const GenerateRequestSchema = z.object({
   issueKey: z.string().min(1, "Issue key is required"),
@@ -32,6 +41,7 @@ export const GenerateRequestSchema = z.object({
   description: z.string().min(1, "Description is required"),
   acceptanceCriteria: z.string().optional().default(""),
   additionalContext: z.string().optional().default(""),
+  images: z.array(ImageDataSchema).optional(),
   modelConfig: ModelConfigSchema.optional().default({}),
   existingTestCases: z.array(TestCaseSchema).optional(),
 });
