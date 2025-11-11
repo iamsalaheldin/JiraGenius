@@ -45,6 +45,8 @@ export default function Home() {
 
   const handleFileContentChange = (content: string) => {
     // Content already includes Confluence content if present (combined in IssueFetcher)
+    console.log("[FileContentChange] Received content length:", content.length);
+    console.log("[FileContentChange] Content preview:", content.substring(0, 200));
     setFileContent(content);
   };
 
@@ -65,9 +67,22 @@ export default function Home() {
       return;
     }
 
+    // Get the latest file content from state (includes both file content and Confluence content)
     const additionalContext = fileContent || "";
+    console.log("[Generate] Current fileContent state length:", fileContent.length);
     console.log("[Generate] Additional context length:", additionalContext.length);
-    console.log("[Generate] Additional context preview:", additionalContext.substring(0, 200));
+    console.log("[Generate] Additional context preview:", additionalContext.substring(0, 500));
+    
+    // Check if Confluence content is included
+    const hasConfluenceContent = additionalContext.includes("--- Confluence Page ---");
+    console.log("[Generate] Contains Confluence content:", hasConfluenceContent);
+    
+    if (!additionalContext) {
+      console.warn("[Generate] WARNING: additionalContext is empty! File content may not have been set.");
+    } else if (hasConfluenceContent) {
+      const confluencePart = additionalContext.split("--- Confluence Page ---")[1] || "";
+      console.log("[Generate] Confluence content length in additionalContext:", confluencePart.length);
+    }
 
     try {
       const response = await fetch("/api/generate", {

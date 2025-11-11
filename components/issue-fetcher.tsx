@@ -66,6 +66,8 @@ export function IssueFetcher({
   const [isFetchingConfluence, setIsFetchingConfluence] = useState(false);
   const [isEditingConfluence, setIsEditingConfluence] = useState(false);
   const [confluenceError, setConfluenceError] = useState<string | null>(null);
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
+  const [editedFileContent, setEditedFileContent] = useState<string>("");
 
   // Sync with saved values when they change externally
   useEffect(() => {
@@ -78,6 +80,31 @@ export function IssueFetcher({
       }
     }
   }, [savedDescription, savedAcceptanceCriteria, fetchedIssue]);
+
+  // Automatically update combined content whenever uploadedFiles or confluenceContent changes
+  useEffect(() => {
+    if (!onFileContentChange) return;
+
+    // Combine all files' content
+    const allFileContent = uploadedFiles
+      .filter((f) => f.status === "success" && f.content)
+      .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
+      .join("\n\n");
+    
+    // Combine with Confluence content
+    const combinedContent = [allFileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
+    
+    console.log("[IssueFetcher] useEffect: Updating combined content");
+    console.log("[IssueFetcher] useEffect: Files count:", uploadedFiles.length);
+    console.log("[IssueFetcher] useEffect: Files with content:", uploadedFiles.filter(f => f.status === "success" && f.content).length);
+    console.log("[IssueFetcher] useEffect: File content length:", allFileContent.length);
+    console.log("[IssueFetcher] useEffect: Confluence content length:", confluenceContent.length);
+    console.log("[IssueFetcher] useEffect: Combined content length:", combinedContent.length);
+    console.log("[IssueFetcher] useEffect: Combined content preview:", combinedContent.substring(0, 300));
+    
+    onFileContentChange(combinedContent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedFiles, confluenceContent]);
 
   const {
     register,
@@ -214,14 +241,13 @@ export function IssueFetcher({
       }
 
       // Update files with success status and content
-      const extractedContent: string[] = [];
-      setUploadedFiles((prev) =>
-        prev.map((f) => {
+      let updatedFiles: UploadedFile[] = [];
+      setUploadedFiles((prev) => {
+        updatedFiles = prev.map((f) => {
           const extractedFile = result.files?.find(
             (ef: { filename: string }) => ef.filename === f.name
           );
           if (extractedFile) {
-            extractedContent.push(`--- File: ${f.name} ---\n${extractedFile.content}\n`);
             return {
               ...f,
               status: "success" as const,
@@ -229,15 +255,31 @@ export function IssueFetcher({
             };
           }
           return f;
-        })
-      );
+        });
+        return updatedFiles;
+      });
 
-      // Combine all extracted content
-      const fileContent = extractedContent.join("\n\n");
+      // Combine ALL files' content (including existing ones) - do this outside state updater
+      const allFileContent = updatedFiles
+        .filter((f) => f.status === "success" && f.content)
+        .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
+        .join("\n\n");
+      
       // Combine with Confluence content
-      const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
+      const combinedContent = [allFileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
+      
+      console.log("[IssueFetcher] Total uploaded files:", updatedFiles.length);
+      console.log("[IssueFetcher] Files with content:", updatedFiles.filter(f => f.status === "success" && f.content).length);
+      console.log("[IssueFetcher] All file content length:", allFileContent.length);
+      console.log("[IssueFetcher] Combined content length:", combinedContent.length);
+      console.log("[IssueFetcher] Combined content preview:", combinedContent.substring(0, 200));
+      
+      // Call the callback with the combined content - outside state updater to avoid React warning
       if (onFileContentChange) {
+        console.log("[IssueFetcher] Calling onFileContentChange with content length:", combinedContent.length);
         onFileContentChange(combinedContent);
+      } else {
+        console.warn("[IssueFetcher] WARNING: onFileContentChange callback is not provided!");
       }
 
       if (result.errors && result.errors.length > 0) {
@@ -262,20 +304,55 @@ export function IssueFetcher({
   };
 
   const handleRemoveFile = (fileId: string) => {
+    let remainingFiles: UploadedFile[] = [];
     setUploadedFiles((prev) => {
-      const remaining = prev.filter((f) => f.id !== fileId);
-      // Update combined content
-      const fileContent = remaining
-        .filter((f) => f.status === "success" && f.content)
-        .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
-        .join("\n\n");
-      // Combine with Confluence content
-      const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
-      if (onFileContentChange) {
-        onFileContentChange(combinedContent);
-      }
-      return remaining;
+      remainingFiles = prev.filter((f) => f.id !== fileId);
+      return remainingFiles;
     });
+
+    // Update combined content - do this outside state updater to avoid React warning
+    const fileContent = remainingFiles
+      .filter((f) => f.status === "success" && f.content)
+      .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
+      .join("\n\n");
+    // Combine with Confluence content
+    const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
+    if (onFileContentChange) {
+      onFileContentChange(combinedContent);
+    }
+    
+    // Clear editing state if the file being removed is being edited
+    if (editingFileId === fileId) {
+      setEditingFileId(null);
+      setEditedFileContent("");
+    }
+  };
+
+  const handleStartEditFile = (fileId: string, content: string) => {
+    setEditingFileId(fileId);
+    setEditedFileContent(content);
+  };
+
+  const handleCancelEditFile = () => {
+    setEditingFileId(null);
+    setEditedFileContent("");
+  };
+
+  const handleSaveFileContent = (fileId: string) => {
+    setUploadedFiles((prev) => {
+      return prev.map((f) => {
+        if (f.id === fileId) {
+          return {
+            ...f,
+            content: editedFileContent,
+          };
+        }
+        return f;
+      });
+    });
+    setEditingFileId(null);
+    setEditedFileContent("");
+    toast.success("File content updated");
   };
 
   const handleFetchConfluence = async () => {
@@ -660,6 +737,77 @@ export function IssueFetcher({
                   </div>
                 </div>
               )}
+
+              {/* Extracted Content Preview */}
+              {uploadedFiles.some((f) => f.status === "success" && f.content) && (
+                <div className="mt-6 space-y-2 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold">Extracted Content Preview</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Preview and edit extracted content from uploaded files
+                      </p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <div className="bg-muted rounded-md border p-4 max-h-64 overflow-y-auto">
+                      <div className="space-y-4 text-sm font-mono whitespace-pre-wrap break-words">
+                        {uploadedFiles
+                          .filter((f) => f.status === "success" && f.content)
+                          .map((file) => (
+                            <div key={file.id} className="space-y-2">
+                              <div className="flex items-center justify-between border-b pb-1">
+                                <div className="font-semibold text-primary">
+                                  {file.name}
+                                </div>
+                                {editingFileId === file.id ? (
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={handleCancelEditFile}
+                                    >
+                                      <X className="h-3 w-3 mr-1" />
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSaveFileContent(file.id)}
+                                    >
+                                      <Save className="h-3 w-3 mr-1" />
+                                      Save
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleStartEditFile(file.id, file.content || "")}
+                                  >
+                                    <Edit2 className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </Button>
+                                )}
+                              </div>
+                              {editingFileId === file.id ? (
+                                <Textarea
+                                  value={editedFileContent}
+                                  onChange={(e) => setEditedFileContent(e.target.value)}
+                                  className="text-xs font-mono min-h-32"
+                                  placeholder="Edit file content..."
+                                />
+                              ) : (
+                                <div className="text-xs text-muted-foreground pl-2">
+                                  {file.content}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Confluence Page Section */}
@@ -772,10 +920,12 @@ export function IssueFetcher({
                       </div>
                     </>
                   ) : (
-                    <div className="bg-muted p-4 rounded-md whitespace-pre-wrap text-sm min-h-48">
-                      {confluenceContent || (
-                        <span className="text-muted-foreground italic">No content available</span>
-                      )}
+                    <div className="bg-muted rounded-md border p-4 max-h-64 overflow-y-auto">
+                      <div className="whitespace-pre-wrap text-sm font-mono break-words">
+                        {confluenceContent || (
+                          <span className="text-muted-foreground italic">No content available</span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
