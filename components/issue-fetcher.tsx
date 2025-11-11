@@ -25,8 +25,8 @@ type IssueKeyForm = z.infer<typeof issueKeySchema>;
 interface IssueFetcherProps {
   onIssueFetched: (issue: ParsedIssue) => void;
   onContentChange?: (description: string, acceptanceCriteria: string) => void;
-  onFileContentChange?: (content: string) => void;
-  onConfluenceContentChange?: (content: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => void;
+  onFileContentChange?: (content: string, files?: Array<{ filename: string; content: string }>) => void;
+  onConfluenceContentChange?: (content: string, title?: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => void;
   savedDescription?: string;
   savedAcceptanceCriteria?: string;
 }
@@ -102,7 +102,10 @@ export function IssueFetcher({
     console.log("[IssueFetcher] useEffect: Combined content length:", combinedContent.length);
     console.log("[IssueFetcher] useEffect: Combined content preview:", combinedContent.substring(0, 300));
     
-    onFileContentChange(combinedContent);
+    const fileData = uploadedFiles
+      .filter((f) => f.status === "success" && f.content)
+      .map((f) => ({ filename: f.name, content: f.content || "" }));
+    onFileContentChange(combinedContent, fileData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadedFiles, confluenceContent]);
 
@@ -277,7 +280,10 @@ export function IssueFetcher({
       // Call the callback with the combined content - outside state updater to avoid React warning
       if (onFileContentChange) {
         console.log("[IssueFetcher] Calling onFileContentChange with content length:", combinedContent.length);
-        onFileContentChange(combinedContent);
+        const fileData = updatedFiles
+          .filter((f) => f.status === "success" && f.content)
+          .map((f) => ({ filename: f.name, content: f.content || "" }));
+        onFileContentChange(combinedContent, fileData);
       } else {
         console.warn("[IssueFetcher] WARNING: onFileContentChange callback is not provided!");
       }
@@ -318,7 +324,10 @@ export function IssueFetcher({
     // Combine with Confluence content
     const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
     if (onFileContentChange) {
-      onFileContentChange(combinedContent);
+      const fileData = remainingFiles
+        .filter((f) => f.status === "success" && f.content)
+        .map((f) => ({ filename: f.name, content: f.content || "" }));
+      onFileContentChange(combinedContent, fileData);
     }
     
     // Clear editing state if the file being removed is being edited
@@ -423,11 +432,14 @@ export function IssueFetcher({
       console.log("[Confluence] Combined content length:", combinedContent.length);
       
       if (onFileContentChange) {
-        onFileContentChange(combinedContent);
+        const fileData = uploadedFiles
+          .filter((f) => f.status === "success" && f.content)
+          .map((f) => ({ filename: f.name, content: f.content || "" }));
+        onFileContentChange(combinedContent, fileData);
       }
       if (onConfluenceContentChange) {
-        // Skip images - only pass text content
-        onConfluenceContentChange(result.page.content, undefined);
+        // Pass title and content, skip images
+        onConfluenceContentChange(result.page.content, result.page.title, undefined);
       }
       
       toast.success(`Successfully fetched Confluence page: ${result.page.title}`);
@@ -448,12 +460,15 @@ export function IssueFetcher({
     const combinedContent = [fileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
     
     if (onFileContentChange) {
-      onFileContentChange(combinedContent);
+      const fileData = uploadedFiles
+        .filter((f) => f.status === "success" && f.content)
+        .map((f) => ({ filename: f.name, content: f.content || "" }));
+      onFileContentChange(combinedContent, fileData);
     }
     if (onConfluenceContentChange) {
       // Note: When editing, we don't have access to the original images
       // So we pass undefined to keep existing images
-      onConfluenceContentChange(confluenceContent, undefined);
+      onConfluenceContentChange(confluenceContent, confluenceTitle, undefined);
     }
     setIsEditingConfluence(false);
     toast.success("Confluence content updated");
@@ -472,10 +487,13 @@ export function IssueFetcher({
       .join("\n\n");
     
     if (onFileContentChange) {
-      onFileContentChange(fileContent);
+      const fileData = uploadedFiles
+        .filter((f) => f.status === "success" && f.content)
+        .map((f) => ({ filename: f.name, content: f.content || "" }));
+      onFileContentChange(fileContent, fileData);
     }
     if (onConfluenceContentChange) {
-      onConfluenceContentChange("", []);
+      onConfluenceContentChange("", undefined, []);
     }
   };
 

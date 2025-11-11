@@ -8,7 +8,7 @@ export function exportToCSV(testCases: TestCase[]): string {
   const BOM = "\uFEFF";
   
   // CSV Headers
-  const headers = ["ID", "Title", "Preconditions", "Steps", "Priority"];
+  const headers = ["ID", "Title", "Preconditions", "Steps", "Priority", "Requirement IDs"];
   
   // Build CSV rows
   const rows = testCases.map((testCase) => {
@@ -18,12 +18,15 @@ export function exportToCSV(testCases: TestCase[]): string {
       )
       .join("\n\n");
     
+    const requirementIds = (testCase.requirementIds || []).join("; ");
+    
     return [
       escapeCSVField(testCase.id),
       escapeCSVField(testCase.title),
       escapeCSVField(testCase.preconditions || ""),
       escapeCSVField(steps),
       escapeCSVField(testCase.priority || "medium"),
+      escapeCSVField(requirementIds),
     ];
   });
   

@@ -1,27 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth-store";
 import { useTestCaseStore } from "@/store/testcase-store";
+import { useTraceabilityStore } from "@/store/traceability-store";
 import { LoginModal } from "@/components/auth/login-modal";
 import { IssueFetcher } from "@/components/issue-fetcher";
 import { GenerationControls } from "@/components/testcase/generation-controls";
 import { TestCaseList } from "@/components/testcase/testcase-list";
+import { CoverageDashboard } from "@/components/traceability/coverage-dashboard";
+import { TraceabilityMatrix } from "@/components/traceability/traceability-matrix";
+import { RequirementsManager } from "@/components/traceability/requirements-manager";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ParsedIssue, ModelConfig } from "@/lib/schemas";
-import { LogOut, Github } from "lucide-react";
+import { LogOut, Github, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { extractAllRequirements } from "@/lib/requirement-extractor";
+import { autoLinkTestCasesToRequirements } from "@/lib/coverage-analyzer";
 
 export default function Home() {
   const { isAuthenticated, logout, user } = useAuthStore();
-  const { setTestCases, testCases } = useTestCaseStore();
+  const { setTestCases, testCases, updateTestCase } = useTestCaseStore();
+  const { setRequirements, requirements } = useTraceabilityStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [currentIssue, setCurrentIssue] = useState<ParsedIssue | null>(null);
   const [editedDescription, setEditedDescription] = useState<string>("");
   const [editedAcceptanceCriteria, setEditedAcceptanceCriteria] = useState<string>("");
   const [fileContent, setFileContent] = useState<string>("");
   const [confluenceContent, setConfluenceContent] = useState<string>("");
+  const [confluenceTitle, setConfluenceTitle] = useState<string>("");
   const [confluenceImages, setConfluenceImages] = useState<Array<{ base64: string; mimeType: string; filename?: string }>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ filename: string; content: string }>>([]);
+  const [showTraceability, setShowTraceability] = useState(false);
+  const [showCoverageAndTraceability, setShowCoverageAndTraceability] = useState(false);
 
   const handleIssueFetched = (issue: ParsedIssue) => {
     setCurrentIssue(issue);
@@ -30,28 +43,44 @@ export default function Home() {
     setEditedAcceptanceCriteria(issue.acceptanceCriteria || "");
     // Clear file content when a new issue is fetched
     setFileContent("");
+    setUploadedFiles([]);
     // Clear Confluence content when a new issue is fetched
     setConfluenceContent("");
+    setConfluenceTitle("");
     setConfluenceImages([]);
     // Clear previous test cases when a new issue is fetched
     setTestCases([], issue.key);
+    // Reset coverage and traceability view when new issue is fetched
+    setShowCoverageAndTraceability(false);
+    setShowTraceability(false);
+    // Don't extract requirements automatically - wait for user to click the button
   };
 
   const handleContentChange = (description: string, acceptanceCriteria: string) => {
     setEditedDescription(description);
     setEditedAcceptanceCriteria(acceptanceCriteria);
+    // Reset coverage view when content changes - user needs to re-extract
+    setShowCoverageAndTraceability(false);
     toast.success("Content updated successfully");
   };
 
-  const handleFileContentChange = (content: string) => {
+  const handleFileContentChange = (content: string, files?: Array<{ filename: string; content: string }>) => {
     // Content already includes Confluence content if present (combined in IssueFetcher)
     console.log("[FileContentChange] Received content length:", content.length);
     console.log("[FileContentChange] Content preview:", content.substring(0, 200));
     setFileContent(content);
+    if (files) {
+      setUploadedFiles(files);
+      // Reset coverage view when files change - user needs to re-extract
+      setShowCoverageAndTraceability(false);
+    }
   };
 
-  const handleConfluenceContentChange = (content: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => {
+  const handleConfluenceContentChange = (content: string, title?: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => {
     setConfluenceContent(content);
+    if (title) {
+      setConfluenceTitle(title);
+    }
     if (images) {
       setConfluenceImages(images);
     }
@@ -59,12 +88,68 @@ export default function Home() {
     const fileOnlyContent = fileContent.split("\n\n--- Confluence Page ---\n\n")[0] || fileContent;
     const combinedContent = [fileOnlyContent, content].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
     setFileContent(combinedContent);
+    // Reset coverage view when Confluence content changes - user needs to re-extract
+    setShowCoverageAndTraceability(false);
+  };
+
+  // Handle Coverage & Traceability button click
+  const handleShowCoverageAndTraceability = () => {
+    if (!currentIssue) {
+      toast.error("Please fetch a Jira issue first");
+      return;
+    }
+
+    // Extract requirements from all current content
+    extractRequirementsForIssue(
+      currentIssue,
+      uploadedFiles,
+      confluenceContent ? { title: confluenceTitle, content: confluenceContent } : undefined
+    );
+
+    // Show the sections
+    setShowCoverageAndTraceability(true);
+    toast.success("Requirements extracted. Review and manage them below.");
+  };
+
+  // Extract requirements from all sources
+  const extractRequirementsForIssue = (
+    issue: ParsedIssue,
+    files: Array<{ filename: string; content: string }>,
+    confluence?: { title: string; content: string }
+  ) => {
+    const extractedRequirements = extractAllRequirements({
+      description: editedDescription || issue.description,
+      acceptanceCriteria: editedAcceptanceCriteria || issue.acceptanceCriteria,
+      fileContents: files,
+      confluenceContent: confluence,
+      issueKey: issue.key,
+    });
+    setRequirements(extractedRequirements, issue.key);
   };
 
   const handleGenerate = async (config: ModelConfig, append: boolean = false) => {
     if (!currentIssue) {
       toast.error("Please fetch a Jira issue first");
       return;
+    }
+
+    // Get requirements from store (use the current/edited requirements, don't re-extract)
+    const { requirements: currentRequirements } = useTraceabilityStore.getState();
+    
+    // Only extract requirements if none exist (first time generation)
+    // Otherwise, use the existing requirements (which may have been edited by the user)
+    if (currentRequirements.length === 0) {
+      console.log("[Generate] No requirements found, extracting from content...");
+      extractRequirementsForIssue(
+        currentIssue,
+        uploadedFiles,
+        confluenceContent ? { title: confluenceTitle, content: confluenceContent } : undefined
+      );
+      // Get fresh requirements after extraction
+      const { requirements: freshRequirements } = useTraceabilityStore.getState();
+      console.log("[Generate] Extracted requirements:", freshRequirements.length);
+    } else {
+      console.log("[Generate] Using existing requirements from store (may include user edits):", currentRequirements.length);
     }
 
     // Get the latest file content from state (includes both file content and Confluence content)
@@ -84,6 +169,11 @@ export default function Home() {
       console.log("[Generate] Confluence content length in additionalContext:", confluencePart.length);
     }
 
+    // Get final requirements from store (either newly extracted or existing edited ones)
+    const { requirements: finalRequirements } = useTraceabilityStore.getState();
+    console.log("[Generate] Requirements to send to LLM:", finalRequirements.length);
+    console.log("[Generate] Requirements:", finalRequirements.map(r => ({ id: r.id, text: r.text.substring(0, 50) })));
+
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -99,6 +189,7 @@ export default function Home() {
           images: confluenceImages.length > 0 ? confluenceImages : undefined,
           modelConfig: config,
           existingTestCases: append ? testCases : undefined,
+          requirements: finalRequirements.length > 0 ? finalRequirements : undefined,
         }),
       });
 
@@ -108,13 +199,24 @@ export default function Home() {
         throw new Error(result.error || "Failed to generate test cases");
       }
 
+      // Auto-link requirements to test cases (use fresh requirements from store)
+      const { requirements: freshRequirements } = useTraceabilityStore.getState();
+      const linkedTestCases = autoLinkTestCasesToRequirements(result.testCases, freshRequirements);
+      
+      // Count how many requirements were linked
+      const totalLinkedRequirements = linkedTestCases.reduce((sum, tc) => sum + (tc.requirementIds?.length || 0), 0);
+      
       if (append) {
         const { appendTestCases } = useTestCaseStore.getState();
-        appendTestCases(result.testCases);
-        toast.success(`Successfully generated ${result.testCases.length} additional test cases!`);
+        appendTestCases(linkedTestCases);
+        toast.success(
+          `Successfully generated ${linkedTestCases.length} additional test cases! ${totalLinkedRequirements > 0 ? `Auto-linked to ${totalLinkedRequirements} requirement(s).` : ''}`
+        );
       } else {
-        setTestCases(result.testCases, currentIssue.key);
-        toast.success(`Successfully generated ${result.testCases.length} test cases!`);
+        setTestCases(linkedTestCases, currentIssue.key);
+        toast.success(
+          `Successfully generated ${linkedTestCases.length} test cases! ${totalLinkedRequirements > 0 ? `Auto-linked to ${totalLinkedRequirements} requirement(s).` : ''}`
+        );
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to generate test cases";
@@ -237,6 +339,39 @@ export default function Home() {
           />
         </section>
 
+        {/* Step 1.5: Coverage & Traceability Button */}
+        {currentIssue && !showCoverageAndTraceability && (
+          <section>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Ready to Analyze Coverage?</h3>
+                    <p className="text-sm text-muted-foreground">
+                      After finalizing your user story, additional files, and Confluence page content, click below to extract requirements and view coverage analysis.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleShowCoverageAndTraceability}
+                    size="lg"
+                    className="w-full md:w-auto"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Coverage & Traceability
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
+        {/* Step 1.6: Review and Manage Requirements */}
+        {currentIssue && showCoverageAndTraceability && (
+          <section>
+            <RequirementsManager />
+          </section>
+        )}
+
         {/* Step 2: Generate Test Cases */}
         {currentIssue && (
           <section>
@@ -254,6 +389,52 @@ export default function Home() {
               issueKey={currentIssue?.key}
               onGenerateMore={(config) => handleGenerate(config, true)}
             />
+          </section>
+        )}
+
+        {/* Step 4: Coverage Dashboard and Traceability */}
+        {currentIssue && showCoverageAndTraceability && (
+          <section>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Coverage & Traceability</h2>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Re-extract requirements
+                      extractRequirementsForIssue(
+                        currentIssue,
+                        uploadedFiles,
+                        confluenceContent ? { title: confluenceTitle, content: confluenceContent } : undefined
+                      );
+                      toast.success("Requirements refreshed");
+                    }}
+                  >
+                    Refresh Requirements
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowTraceability(!showTraceability)}
+                  >
+                    {showTraceability ? "Hide" : "Show"} Traceability Matrix
+                  </Button>
+                </div>
+              </div>
+              {requirements.length > 0 ? (
+                <>
+                  <CoverageDashboard />
+                  {showTraceability && <TraceabilityMatrix />}
+                </>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No requirements found. Please check your user story, files, or Confluence page content.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
           </section>
         )}
 
