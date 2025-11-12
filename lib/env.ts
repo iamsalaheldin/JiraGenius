@@ -9,6 +9,9 @@ const envSchema = z.object({
   JIRA_BASE_URL: optionalString,
   JIRA_EMAIL: optionalString,
   JIRA_API_TOKEN: optionalString,
+  // X-Ray Cloud JWT authentication (optional, for future JWT Bearer token support)
+  XRAY_CLIENT_ID: optionalString,
+  XRAY_CLIENT_SECRET: optionalString,
   // LLM provider configuration
   LLM_PROVIDER: z.enum(["gemini", "openai", "anthropic"]).default("gemini"),
   GEMINI_API_KEY: optionalString,

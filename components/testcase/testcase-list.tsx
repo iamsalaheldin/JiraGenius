@@ -25,9 +25,14 @@ interface TestCaseListProps {
 }
 
 export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
-  const { testCases, addTestCase, clearTestCases } = useTestCaseStore();
+  const {
+    testCases,
+    addTestCase,
+    clearTestCases,
+  } = useTestCaseStore();
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
+
 
   const handleAddTestCase = () => {
     const newTestCase: TestCase = {
@@ -86,6 +91,8 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
     toast.success("All test cases cleared");
   };
 
+
+
   if (testCases.length === 0) {
     return null;
   }
@@ -123,16 +130,18 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Review and edit the generated test cases below. You can reorder steps, add/remove steps,
-            change priorities, and export to CSV or JSON when ready.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Review and edit the generated test cases below. You can reorder steps, add/remove steps,
+              change priorities, and export to CSV or JSON when ready.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
       <div className="space-y-4">
         {testCases.map((testCase) => (
-          <TestCaseCard key={testCase.id} testCase={testCase} />
+          <TestCaseCard key={testCase.id} testCase={testCase} issueKey={issueKey || null} />
         ))}
       </div>
 
