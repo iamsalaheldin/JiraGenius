@@ -21,16 +21,32 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface TestCaseCardProps {
   testCase: TestCase;
+  issueKey?: string | null;
 }
 
-export function TestCaseCard({ testCase }: TestCaseCardProps) {
+export function TestCaseCard({ testCase, issueKey }: TestCaseCardProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const { updateTestCase, deleteTestCase, reorderSteps, addStep, updateStep, deleteStep } =
-    useTestCaseStore();
+  const [isUploading, setIsUploading] = useState(false);
+  const {
+    updateTestCase,
+    deleteTestCase,
+    reorderSteps,
+    addStep,
+    updateStep,
+    deleteStep,
+    toggleTestCaseSelection,
+    isTestCaseSelected,
+  } = useTestCaseStore();
+  
+  const isSelected = isTestCaseSelected(testCase.id);
 
   const {
     register,
@@ -98,13 +114,21 @@ export function TestCaseCard({ testCase }: TestCaseCardProps) {
     }
   };
 
+
   if (!isEditing) {
     return (
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleTestCaseSelection(testCase.id)}
+                  className="h-4 w-4 rounded border-gray-300"
+                  onClick={(e) => e.stopPropagation()}
+                />
                 <Badge variant="outline">{testCase.id}</Badge>
                 <Badge variant={getPriorityColor(testCase.priority)}>
                   {testCase.priority || "medium"}
