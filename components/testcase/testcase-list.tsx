@@ -47,6 +47,7 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
         },
       ],
       priority: "medium",
+      requirementIds: [],
     };
     addTestCase(newTestCase);
   };

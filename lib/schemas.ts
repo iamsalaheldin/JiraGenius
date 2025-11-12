@@ -31,7 +31,9 @@ export const TestCaseSchema = z.object({
   requirementIds: z.array(z.string()).optional().default([]),
 });
 
-export type TestCase = z.infer<typeof TestCaseSchema>;
+export type TestCase = Omit<z.infer<typeof TestCaseSchema>, 'requirementIds'> & {
+  requirementIds?: string[];
+};
 
 // Model Configuration Schema
 export const ModelConfigSchema = z.object({});
