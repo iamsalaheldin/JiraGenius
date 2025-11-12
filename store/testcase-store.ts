@@ -177,10 +177,10 @@ export const useTestCaseStore = create<TestCaseStore>()(
       // Selection actions
       toggleTestCaseSelection: (id: string) => {
         set((state) => {
-          const currentSet = state.selectedTestCases instanceof Set 
+          const currentSet: Set<string> = state.selectedTestCases instanceof Set 
             ? state.selectedTestCases 
-            : new Set(state.selectedTestCases);
-          const newSelected = new Set(currentSet);
+            : new Set<string>(Array.isArray(state.selectedTestCases) ? state.selectedTestCases : []);
+          const newSelected = new Set<string>(currentSet);
           if (newSelected.has(id)) {
             newSelected.delete(id);
           } else {
@@ -202,7 +202,9 @@ export const useTestCaseStore = create<TestCaseStore>()(
 
       isTestCaseSelected: (id: string) => {
         const selected = get().selectedTestCases;
-        const selectedSet = selected instanceof Set ? selected : new Set(selected);
+        const selectedSet: Set<string> = selected instanceof Set 
+          ? selected 
+          : new Set<string>(Array.isArray(selected) ? selected : []);
         return selectedSet.has(id);
       },
     }),
