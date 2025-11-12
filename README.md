@@ -7,9 +7,20 @@ AI-powered test case generation for Jira user stories using Next.js 15 and Googl
 - 🔐 **Jira Integration**: Authenticate using API tokens and fetch user stories directly from Jira
 - 🤖 **AI-Powered Generation**: Generate comprehensive test cases using Gemini, OpenAI, or Anthropic
 - ✏️ **Inline Editing**: Edit test cases, reorder steps, and customize priorities
-- 📤 **Export Options**: Export test cases as CSV (Excel-compatible) or JSON
+- 📤 **Export Options**: Export test cases as CSV (Excel-compatible) or JSON for use in your test management tools
 - 🎨 **Modern UI**: Built with Next.js 15, TypeScript, Tailwind CSS, and ShadCN UI
 - 💾 **Session Persistence**: Test cases are saved in browser storage during your session
+- 🔄 **Generate More**: Generate additional test cases with different configurations
+- ➕ **Manual Test Cases**: Add custom test cases manually
+- 🧹 **Clear All**: Remove all test cases with confirmation dialog
+
+## Recent Changes
+
+### Current Version Focus
+- **Export-First Approach**: The application now focuses on generating and exporting test cases
+- **CSV/JSON Export**: Primary workflow is to generate, edit, and export test cases for use in external tools
+- **Removed Features**: Jira Xray upload functionality has been removed to simplify the workflow
+- **Enhanced Export**: Improved CSV and JSON export formats with better formatting and metadata
 
 ## Prerequisites
 
@@ -106,7 +117,14 @@ npm run build
 npm start
 ```
 
+## Documentation
+
+- 📖 **[User Guide](USER_GUIDE.md)**: Comprehensive step-by-step guide for using the application
+- 📚 **This README**: Setup, configuration, and technical documentation
+
 ## Usage
+
+For detailed usage instructions, see the [User Guide](USER_GUIDE.md). Quick start below:
 
 ### Step 1: Authenticate
 
@@ -137,11 +155,18 @@ npm start
 5. Change priorities (Low, Medium, High)
 6. Click "Save" when done editing
 
-### Step 5: Export
+### Step 5: Export Test Cases
 
-1. Click "Export CSV" for Excel-compatible format
-2. Click "Export JSON" for JSON format
-3. Files are downloaded with timestamps and issue keys
+1. Click **"Export CSV"** to download test cases in Excel-compatible CSV format
+   - Includes UTF-8 BOM for proper Excel encoding
+   - All test steps and metadata are included
+   - Filename includes issue key and timestamp
+2. Click **"Export JSON"** to download test cases in JSON format
+   - Pretty-printed for readability
+   - Complete test case structure preserved
+   - Filename includes issue key and timestamp
+
+**Note**: Exported files can be imported into your test management tools (Jira Xray, TestRail, qTest, etc.) or used for documentation purposes.
 
 ## Testing
 
@@ -211,21 +236,21 @@ See `SECURITY.md` for detailed security recommendations and OAuth implementation
 │   │   └── auth-provider.tsx         # Auth context provider
 │   ├── testcase/
 │   │   ├── testcase-card.tsx         # Individual test case editor
-│   │   ├── testcase-list.tsx         # Test case list with export
-│   │   └── generation-controls.tsx   # Generation configuration
+│   │   └── testcase-list.tsx         # Test case list with export buttons
 │   ├── issue-fetcher.tsx             # Jira issue fetcher
 │   └── ui/                           # ShadCN UI components
 ├── lib/
 │   ├── adf-converter.ts              # ADF to plain text converter
-│   ├── csv-export.ts                 # CSV export utility
+│   ├── csv-export.ts                 # CSV export utility (Excel-compatible)
 │   ├── json-export.ts                # JSON export utility
 │   ├── jira-client.ts                # Jira API client
+│   ├── jira-server.ts                # Server-side Jira utilities
 │   ├── llm-client.ts                 # LLM integration
 │   ├── schemas.ts                    # Zod validation schemas
 │   └── __tests__/                    # Unit tests
 ├── store/
 │   ├── auth-store.ts                 # Authentication state
-│   └── testcase-store.ts             # Test case state
+│   └── testcase-store.ts             # Test case state management
 └── .env.example                      # Environment variables template
 ```
 
@@ -256,16 +281,32 @@ See `SECURITY.md` for detailed security recommendations and OAuth implementation
 - Try importing as UTF-8 encoded CSV in Excel
 - Use "Export JSON" as an alternative
 
-## Future OAuth Implementation
+## Export Formats
 
-When you're ready to implement OAuth 2.0 for Jira:
+### CSV Format
+- **Excel Compatible**: Includes UTF-8 BOM for proper character encoding
+- **Columns**: ID, Title, Preconditions, Steps, Priority, Requirement IDs
+- **Steps Format**: Numbered steps with actions and expected results
+- **Special Characters**: Properly escaped for CSV compatibility
 
-1. **Register OAuth app** in Jira
-2. **Update `lib/jira-client.ts`**: Replace Basic Auth with OAuth token flow
-3. **Update `store/auth-store.ts`**: Store OAuth tokens instead of API token
-4. **Update `components/auth/login-modal.tsx`**: Implement OAuth redirect flow
+### JSON Format
+- **Structure**: Complete test case objects with all metadata
+- **Pretty Printed**: Human-readable formatting
+- **Schema**: Validates against Zod schemas for consistency
 
-See `SECURITY.md` for detailed implementation steps.
+Both formats include timestamps and issue keys in filenames for easy organization.
+
+## Future Enhancements
+
+Potential features for future development:
+
+1. **OAuth 2.0 Integration**: Replace API token authentication with OAuth flow
+2. **Batch Export**: Export multiple test case sets at once
+3. **Custom Templates**: Define custom export formats
+4. **Test Case Import**: Import test cases from CSV/JSON files
+5. **Requirements Traceability**: Link test cases to requirements and generate traceability matrices
+
+See `SECURITY.md` for OAuth implementation guidance.
 
 ## Contributing
 

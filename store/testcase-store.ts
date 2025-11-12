@@ -2,9 +2,19 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { TestCase, TestStep } from "@/lib/schemas";
 
+export type UploadStatus = "pending" | "uploading" | "uploaded" | "skipped" | "failed";
+
+export interface TestCaseUploadStatus {
+  uploadStatus: UploadStatus;
+  jiraTestKey: string | null;
+  uploadError: string | null;
+}
+
 interface TestCaseState {
   testCases: TestCase[];
   currentIssueKey: string | null;
+  uploadStatuses: Record<string, TestCaseUploadStatus>;
+  selectedTestCases: Set<string>;
 }
 
 interface TestCaseActions {
@@ -18,6 +28,19 @@ interface TestCaseActions {
   updateStep: (caseId: string, stepId: string, updates: Partial<TestStep>) => void;
   deleteStep: (caseId: string, stepId: string) => void;
   clearTestCases: () => void;
+  // Upload status actions
+  setUploadStatus: (
+    id: string,
+    status: UploadStatus,
+    testKey?: string | null,
+    error?: string | null
+  ) => void;
+  clearUploadStatuses: () => void;
+  // Selection actions
+  toggleTestCaseSelection: (id: string) => void;
+  selectAllTestCases: () => void;
+  deselectAllTestCases: () => void;
+  isTestCaseSelected: (id: string) => boolean;
 }
 
 type TestCaseStore = TestCaseState & TestCaseActions;
@@ -28,6 +51,8 @@ export const useTestCaseStore = create<TestCaseStore>()(
       // State
       testCases: [],
       currentIssueKey: null,
+      uploadStatuses: {},
+      selectedTestCases: new Set<string>(),
 
       // Actions
       setTestCases: (cases: TestCase[], issueKey?: string) => {
@@ -121,7 +146,64 @@ export const useTestCaseStore = create<TestCaseStore>()(
         set({
           testCases: [],
           currentIssueKey: null,
+          uploadStatuses: {},
+          selectedTestCases: new Set<string>(),
         });
+      },
+
+      // Upload status actions
+      setUploadStatus: (
+        id: string,
+        status: UploadStatus,
+        testKey?: string | null,
+        error?: string | null
+      ) => {
+        set((state) => ({
+          uploadStatuses: {
+            ...state.uploadStatuses,
+            [id]: {
+              uploadStatus: status,
+              jiraTestKey: testKey ?? null,
+              uploadError: error ?? null,
+            },
+          },
+        }));
+      },
+
+      clearUploadStatuses: () => {
+        set({ uploadStatuses: {} });
+      },
+
+      // Selection actions
+      toggleTestCaseSelection: (id: string) => {
+        set((state) => {
+          const currentSet = state.selectedTestCases instanceof Set 
+            ? state.selectedTestCases 
+            : new Set(state.selectedTestCases);
+          const newSelected = new Set(currentSet);
+          if (newSelected.has(id)) {
+            newSelected.delete(id);
+          } else {
+            newSelected.add(id);
+          }
+          return { selectedTestCases: newSelected };
+        });
+      },
+
+      selectAllTestCases: () => {
+        set((state) => ({
+          selectedTestCases: new Set(state.testCases.map((tc) => tc.id)),
+        }));
+      },
+
+      deselectAllTestCases: () => {
+        set({ selectedTestCases: new Set<string>() });
+      },
+
+      isTestCaseSelected: (id: string) => {
+        const selected = get().selectedTestCases;
+        const selectedSet = selected instanceof Set ? selected : new Set(selected);
+        return selectedSet.has(id);
       },
     }),
     {
@@ -129,6 +211,8 @@ export const useTestCaseStore = create<TestCaseStore>()(
       partialize: (state) => ({
         testCases: state.testCases,
         currentIssueKey: state.currentIssueKey,
+        // Note: uploadStatuses and selectedTestCases are not persisted
+        // They are session-only state
       }),
     }
   )
