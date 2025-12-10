@@ -4,33 +4,72 @@ AI-powered test case generation for Jira user stories using Next.js 15 and Claud
 
 ## Features
 
+### Core Capabilities
 - 🔐 **Jira Integration**: Authenticate using API tokens and fetch user stories directly from Jira
 - 🤖 **AI-Powered Generation**: Generate comprehensive test cases using Claude Sonnet 4.5, Gemini, or OpenAI
 - ✏️ **Inline Editing**: Edit test cases, reorder steps, and customize priorities
 - 📤 **Export Options**: Export test cases as CSV (Excel-compatible) or JSON for use in your test management tools
 - 🎨 **Modern UI**: Built with Next.js 15, TypeScript, Tailwind CSS, and ShadCN UI
 - 💾 **Session Persistence**: Test cases are saved in browser storage during your session
+
+### Dual Workflow Support
+- 🔄 **Jira-Based Workflow**: Traditional workflow starting with Jira user stories
+- 📄 **Standalone Content Workflow**: Generate test cases from files and Confluence pages without Jira issues
+- 🎯 **Full Feature Parity**: Both workflows support all features (requirements extraction, coverage, traceability)
+
+### Content Sources
+- 📄 **File Upload & Extraction**: Upload PDF, DOCX, TXT files and extract requirements from their content
+- 📚 **Confluence Integration**: Fetch and extract content from Confluence pages (including images) to enhance test case generation
+- 🔍 **Multi-Source Analysis**: Combine Jira issues, files, and Confluence pages for comprehensive test coverage
+
+### Requirements & Traceability
+- 🤖 **AI-Powered Requirement Extraction**: LLM-based extraction that breaks down complex statements into atomic, testable requirements
+- 🔗 **Automatic Requirement Extraction**: Extract requirements from user stories, acceptance criteria, files, and Confluence pages
+- 📊 **Coverage Dashboard**: Visualize requirement coverage metrics, identify gaps, and analyze coverage by source and category
+- 🔄 **Traceability Matrix**: Interactive matrix showing which test cases cover which requirements with manual linking support
+- 🎯 **Auto-Linking**: Intelligent semantic matching automatically links test cases to relevant requirements
+
+### Test Case Management
 - 🔄 **Generate More**: Generate additional test cases with different configurations
 - ➕ **Manual Test Cases**: Add custom test cases manually
 - 🧹 **Clear All**: Remove all test cases with confirmation dialog
-- 📄 **File Upload & Extraction**: Upload PDF, DOCX, TXT files and extract requirements from their content
-- 📚 **Confluence Integration**: Fetch and extract content from Confluence pages to enhance test case generation
-- 🔗 **Requirements Traceability**: Automatically extract requirements from user stories, files, and Confluence pages
-- 📊 **Coverage Dashboard**: Visualize requirement coverage metrics and identify gaps
-- 🔄 **Traceability Matrix**: View and manage links between test cases and requirements
-- 🤝 **Multi-User Support**: Each user authenticates with their own Jira credentials (see [MULTI_USER_SETUP.md](MULTI_USER_SETUP.md))
+- 📝 **Step Management**: Add, remove, reorder, and edit test steps with intuitive controls
+
+### Multi-User Support
+- 🤝 **Multi-User Architecture**: Each user authenticates with their own Jira credentials (see [MULTI_USER_SETUP.md](MULTI_USER_SETUP.md))
+- 🔒 **Secure Storage**: User credentials stored in browser localStorage (per-user isolation)
 
 ## Recent Changes
 
-### Latest Features
-- **Requirements Traceability System**: Automatic extraction and management of requirements from multiple sources
-- **File Upload Support**: Upload and extract text from PDF, DOCX, and TXT files to enhance test case generation
-- **Confluence Integration**: Fetch Confluence pages by URL and extract content for comprehensive test coverage
-- **Coverage Analysis**: Visual dashboard showing requirement coverage metrics and gaps
+### Latest Features (2024)
+
+#### 🆕 Standalone Content Upload Flow
+- **Generate test cases without Jira issues**: Upload files or fetch Confluence pages directly to generate test cases
+- **Dual workflow support**: Choose between Jira-based or standalone content workflows
+- **Full feature parity**: All features (requirements extraction, coverage analysis, traceability) work in both modes
+- **Flexible starting point**: Start testing before Jira issues are created or work with existing documentation
+
+#### 🤖 AI-Powered Requirement Extraction
+- **LLM-based extraction**: Uses Claude Sonnet 4.5, Gemini, or OpenAI to intelligently extract requirements
+- **Multi-source analysis**: Extracts requirements from user stories, acceptance criteria, uploaded files, and Confluence pages
+- **Atomic requirements**: Breaks down complex statements into individual testable items
+- **Smart categorization**: Automatically categorizes requirements (functional, API, flow, edge case, non-functional)
+- **Priority assignment**: AI assigns priority levels (high, medium, low) based on importance
+
+#### 📊 Enhanced Requirements Traceability
+- **Automatic requirement extraction**: AI analyzes all content sources and extracts testable requirements
+- **Coverage Dashboard**: Visual metrics showing requirement coverage by source and category
 - **Traceability Matrix**: Interactive matrix showing which test cases cover which requirements
-- **Auto-Linking**: Intelligent semantic matching to automatically link test cases to requirements
-- **Multi-User Architecture**: Support for multiple users with individual Jira authentication
-- **Enhanced Export**: Improved CSV and JSON export formats with requirement traceability data
+- **Auto-linking**: Intelligent semantic matching automatically links test cases to requirements
+- **Gap analysis**: Identifies uncovered requirements to ensure comprehensive test coverage
+
+#### 🔄 Improved Workflow
+- **Side-by-side options**: After authentication, choose between "Fetch Jira User Story" or "Upload Content Directly"
+- **Unified experience**: Both workflows follow the same consistent user experience
+- **Enhanced file management**: Better file upload UI with drag-and-drop, preview, and content editing
+- **Confluence integration**: Fetch Confluence pages by URL with automatic content extraction and image support
+- **Multi-User Architecture**: Each user authenticates with their own Jira credentials (see [MULTI_USER_SETUP.md](MULTI_USER_SETUP.md))
+- **Enhanced Export**: CSV and JSON exports include requirement traceability data and coverage metrics
 
 ## Prerequisites
 
@@ -147,84 +186,132 @@ For detailed usage instructions, see the [User Guide](USER_GUIDE.md). Quick star
 2. Enter your Jira Base URL, Email, and API Token
 3. Click "Connect" to validate your credentials
 
-### Step 2: Fetch a User Story
+**Note**: Jira authentication is required even for standalone mode (used for Confluence access if needed).
 
+### Step 2: Choose Your Workflow
+
+After authentication, you'll see two options side-by-side:
+
+#### Option A: Jira-Based Workflow (Traditional)
+
+**Step 2A.1: Fetch a User Story**
 1. Enter a Jira issue key (e.g., `PROJ-123`) in the "Fetch Jira User Story" section
 2. Click "Fetch Issue"
 3. The story details will be displayed, including description and acceptance criteria
 4. Optionally edit the description or acceptance criteria inline
 
-### Step 2.5: Add Additional Context (Optional)
+**Step 2A.2: Add Additional Context (Optional)**
+- **Upload Files**: Click "Upload Files" and select PDF, DOCX, or TXT files
+- **Fetch Confluence Page**: Click "Fetch Confluence Page" and paste a Confluence URL
+- Content from both sources is automatically included in test case generation
 
-**Upload Files:**
-1. Click "Upload Files" in the issue fetcher section
-2. Select PDF, DOCX, or TXT files containing requirements or specifications
-3. Files are automatically processed and text is extracted
-4. Content is included in test case generation
+#### Option B: Standalone Content Workflow (New)
 
-**Fetch Confluence Page:**
-1. Click "Fetch Confluence Page" in the issue fetcher section
-2. Paste a Confluence page URL (e.g., `https://company.atlassian.net/wiki/spaces/SPACE/pages/123456/...`)
-3. The page content is fetched and included in test case generation
+**Step 2B.1: Upload Content Directly**
+1. Use the "Upload Content Directly" card (shown alongside Jira option)
+2. **Upload Files**: Drag-and-drop or select PDF, DOCX, or TXT files
+   - Files are automatically processed and text is extracted
+   - You can preview and edit extracted content
+   - Multiple files are supported
+3. **Fetch Confluence Page**: Paste a Confluence page URL
+   - Page content is fetched and displayed
+   - Images from Confluence pages are automatically extracted
+   - Content can be edited before generation
 
-### Step 2.6: Extract Requirements (Optional)
+**Benefits of Standalone Mode:**
+- ✅ Generate test cases before Jira issues are created
+- ✅ Work with existing documentation and specifications
+- ✅ Test documentation-driven development workflows
+- ✅ Full feature parity with Jira-based workflow
 
-1. After adding files or Confluence content, click "Coverage & Traceability"
-2. Requirements are automatically extracted from:
-   - User story description
-   - Acceptance criteria
-   - Uploaded files
-   - Confluence pages
-3. Review and edit requirements in the Requirements Manager
-4. Requirements are categorized (functional, API, flow, edge case, etc.) and prioritized
+### Step 3: Extract Requirements (Recommended)
 
-### Step 3: Generate Test Cases
+**AI-Powered Requirement Extraction:**
+1. After adding content (Jira issue, files, or Confluence pages), click **"Coverage & Traceability"**
+2. The AI automatically analyzes all content sources and extracts requirements:
+   - **User story description** (Jira mode)
+   - **Acceptance criteria** (Jira mode)
+   - **Uploaded files** (both modes)
+   - **Confluence pages** (both modes)
+3. Requirements are automatically:
+   - Broken down into atomic, testable items
+   - Categorized (functional, API, flow, edge case, non-functional)
+   - Prioritized (high, medium, low)
+   - Tagged with their source
+4. Review and edit requirements in the Requirements Manager:
+   - Add, edit, or delete requirements
+   - Adjust categories and priorities
+   - Merge or split requirements as needed
+
+**Why Extract Requirements?**
+- ✅ Ensures comprehensive test coverage
+- ✅ Identifies gaps in test cases
+- ✅ Enables traceability between requirements and test cases
+- ✅ Provides coverage metrics and analysis
+
+### Step 4: Generate Test Cases
 
 1. Configure generation options:
-   - **Detail Level**: Choose between "Concise" or "Detailed" test cases
+   - **Detail Level**: Choose between "Concise" (faster) or "Detailed" (comprehensive)
    - **Count**: Select 3-7 test cases to generate
-2. Click "Generate Test Cases"
+2. Click **"Generate Test Cases"**
 3. Wait 10-30 seconds for the AI to generate test cases
+4. If requirements were extracted, test cases are automatically linked to relevant requirements
 
-### Step 4: Review and Edit
+### Step 5: Review and Edit
 
 1. Review the generated test cases
-2. Click the edit icon (✏️) to modify any test case
-3. Add/remove steps using the "+" and trash icons
-4. Reorder steps using the up/down arrows
-5. Change priorities (Low, Medium, High)
-6. View linked requirements (if requirements were extracted)
-7. Click "Save" when done editing
+2. Click the edit icon (✏️) to modify any test case:
+   - Edit title, preconditions, and priority
+   - Add, remove, or reorder test steps
+   - View and manage linked requirements
+3. Use the up/down arrows to reorder steps
+4. Change priorities (Low, Medium, High)
+5. Click "Save" when done editing
 
-### Step 5: Analyze Coverage (If Requirements Extracted)
+**Additional Actions:**
+- **Add Manual Test Cases**: Click "Add Test Case" to create custom test cases
+- **Generate More**: Click "Generate More Test Cases" to add additional scenarios
+- **Delete**: Remove individual test cases or clear all with confirmation
 
-1. View the Coverage Dashboard to see:
-   - Total requirements and coverage percentage
-   - Coverage by source (user story, acceptance criteria, files, Confluence)
-   - Coverage by category (functional, API, flow, etc.)
-   - Uncovered requirements
-2. Toggle the Traceability Matrix to see:
-   - Which test cases cover which requirements
+### Step 6: Analyze Coverage
+
+1. Click **"Coverage & Traceability"** to view the Coverage Dashboard:
+   - **Total requirements** and coverage percentage
+   - **Coverage by source**: user story, acceptance criteria, files, Confluence
+   - **Coverage by category**: functional, API, flow, edge case, etc.
+   - **Uncovered requirements**: Requirements not yet covered by test cases
+2. Toggle to **Traceability Matrix** view:
+   - See which test cases cover which requirements
    - Manually link/unlink test cases to requirements
    - Filter by source, category, or coverage status
-3. Export traceability matrix as CSV if needed
+   - Export traceability matrix as CSV
 
-### Step 6: Export Test Cases
+**Coverage Benefits:**
+- ✅ Identify gaps in test coverage
+- ✅ Ensure all requirements are tested
+- ✅ Track requirement-to-test-case relationships
+- ✅ Generate coverage reports for stakeholders
 
-1. Click **"Export CSV"** to download test cases in Excel-compatible CSV format
+### Step 7: Export Test Cases
+
+1. **Export CSV**: Click **"Export CSV"** for Excel-compatible format
    - Includes UTF-8 BOM for proper Excel encoding
-   - All test steps and metadata are included
-   - Filename includes issue key and timestamp
-2. Click **"Export JSON"** to download test cases in JSON format
+   - All test steps and metadata included
+   - Requirement IDs included for traceability
+   - Filename: `test-cases-ISSUE-KEY-TIMESTAMP.csv`
+
+2. **Export JSON**: Click **"Export JSON"** for structured data format
    - Pretty-printed for readability
    - Complete test case structure preserved
-   - Filename includes issue key and timestamp
-
-**Note**: Exported files can be imported into your test management tools (Jira Xray, TestRail, qTest, etc.) or used for documentation purposes. The CSV export includes requirement IDs for traceability.
+   - Requirement links included
+   - Filename: `test-cases-ISSUE-KEY-TIMESTAMP.json`
 
 **Additional Exports:**
-- **Traceability Matrix CSV**: Export the full traceability matrix showing requirement-to-test-case mappings
+- **Traceability Matrix CSV**: Export requirement-to-test-case mappings
 - **Coverage Report JSON**: Export detailed coverage metrics and analysis
+
+**Note**: Exported files can be imported into test management tools (Jira Xray, TestRail, qTest, etc.) or used for documentation purposes.
 
 ## Testing
 
