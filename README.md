@@ -1,11 +1,11 @@
-# Jira Test Case Generator
+# Jira Genius
 
-AI-powered test case generation for Jira user stories using Next.js 15 and Google Gemini (or OpenAI/Anthropic).
+AI-powered test case generation for Jira user stories using Next.js 15 and Claude Sonnet 4.5 (or Gemini/OpenAI).
 
 ## Features
 
 - 🔐 **Jira Integration**: Authenticate using API tokens and fetch user stories directly from Jira
-- 🤖 **AI-Powered Generation**: Generate comprehensive test cases using Gemini, OpenAI, or Anthropic
+- 🤖 **AI-Powered Generation**: Generate comprehensive test cases using Claude Sonnet 4.5, Gemini, or OpenAI
 - ✏️ **Inline Editing**: Edit test cases, reorder steps, and customize priorities
 - 📤 **Export Options**: Export test cases as CSV (Excel-compatible) or JSON for use in your test management tools
 - 🎨 **Modern UI**: Built with Next.js 15, TypeScript, Tailwind CSS, and ShadCN UI
@@ -36,7 +36,7 @@ AI-powered test case generation for Jira user stories using Next.js 15 and Googl
 
 - **Node.js**: Version 18 or higher
 - **Jira Account**: With API token access
-- **LLM API Key**: Google Gemini (default), OpenAI, or Anthropic API key
+- **LLM API Key**: Anthropic Claude (default), Google Gemini, or OpenAI API key
 
 ## Getting Started
 
@@ -66,12 +66,14 @@ JIRA_EMAIL=
 JIRA_API_TOKEN=
 
 # LLM Configuration (REQUIRED)
-LLM_PROVIDER=gemini  # Options: gemini, openai, anthropic
+LLM_PROVIDER=anthropic  # Options: anthropic, gemini, openai
 
 # LLM API Keys - Set the one matching your LLM_PROVIDER (REQUIRED)
-GEMINI_API_KEY=your-gemini-api-key
-OPENAI_API_KEY=your-openai-api-key
 ANTHROPIC_API_KEY=your-anthropic-api-key
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929  # Optional: specify model (default: claude-sonnet-4-5-20250929)
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-2.5-flash  # Optional: specify model (default: gemini-2.5-flash)
+OPENAI_API_KEY=your-openai-api-key
 ```
 
 **Important:** 
@@ -80,11 +82,19 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 
 ### 3. Get Your LLM API Key
 
-#### Gemini API Key (Default)
+#### Anthropic API Key (Default - Claude Sonnet 4.5)
+
+1. Go to [Anthropic Console](https://console.anthropic.com/)
+2. Create a new API key
+3. Copy the key to `ANTHROPIC_API_KEY` in `.env.local`
+4. Optionally set `ANTHROPIC_MODEL` to use a different Claude model
+
+#### Gemini API Key (Alternative)
 
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Click "Create API Key"
 3. Copy the key to `GEMINI_API_KEY` in `.env.local`
+4. Set `LLM_PROVIDER=gemini`
 
 #### OpenAI API Key (Alternative)
 
@@ -92,13 +102,6 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 2. Create a new API key
 3. Copy the key to `OPENAI_API_KEY` in `.env.local`
 4. Set `LLM_PROVIDER=openai`
-
-#### Anthropic API Key (Alternative)
-
-1. Go to [Anthropic Console](https://console.anthropic.com/)
-2. Create a new API key
-3. Copy the key to `ANTHROPIC_API_KEY` in `.env.local`
-4. Set `LLM_PROVIDER=anthropic`
 
 ### 4. User Instructions for Jira Authentication
 
@@ -274,7 +277,7 @@ See `SECURITY.md` for detailed security recommendations and OAuth implementation
 - **Components**: ShadCN UI
 - **State Management**: Zustand
 - **Form Handling**: React Hook Form + Zod
-- **LLM Integration**: Google Gemini / OpenAI / Anthropic SDKs
+- **LLM Integration**: Anthropic Claude / Google Gemini / OpenAI SDKs
 - **File Processing**: Mammoth (DOCX), PDF extraction libraries
 - **Confluence Integration**: Custom Confluence API client with ADF/HTML parsing
 
@@ -314,7 +317,7 @@ See `SECURITY.md` for detailed security recommendations and OAuth implementation
 │   ├── json-export.ts               # JSON export utility
 │   ├── jira-client.ts                # Jira API client
 │   ├── jira-server.ts               # Server-side Jira utilities
-│   ├── llm-client.ts                 # LLM integration (Gemini/OpenAI/Anthropic)
+│   ├── llm-client.ts                 # LLM integration (Claude/Gemini/OpenAI)
 │   ├── requirement-extractor.ts     # Requirement extraction from multiple sources
 │   ├── schemas.ts                    # Zod validation schemas
 │   ├── traceability-export.ts       # Traceability matrix export
@@ -399,9 +402,19 @@ All formats include timestamps and issue keys in filenames for easy organization
 
 ## Advanced Configuration
 
-### Gemini Model Selection
+### Model Selection
 
-You can specify which Gemini model to use by setting the `GEMINI_MODEL` environment variable:
+You can specify which models to use by setting environment variables:
+
+#### Anthropic Model (Default Provider)
+
+```env
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929  # Default
+# or
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+```
+
+#### Gemini Model (Alternative Provider)
 
 ```env
 GEMINI_MODEL=gemini-2.5-flash  # Default

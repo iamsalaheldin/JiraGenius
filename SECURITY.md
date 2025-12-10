@@ -1,6 +1,6 @@
 # Security Guide
 
-This document outlines security considerations for the Jira Test Case Generator and provides guidance for implementing more secure authentication methods.
+This document outlines security considerations for the Jira Genius and provides guidance for implementing more secure authentication methods.
 
 ## Current Security Model (MVP)
 

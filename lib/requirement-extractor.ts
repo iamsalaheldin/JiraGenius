@@ -368,7 +368,34 @@ function determinePriority(text: string): RequirementPriority {
 }
 
 /**
- * Extract all requirements from combined context
+ * Extract all requirements from combined context using LLM
+ */
+export async function extractAllRequirementsWithLLM(params: {
+  description?: string;
+  acceptanceCriteria?: string;
+  fileContents?: Array<{ filename: string; content: string }>;
+  confluenceContent?: { title: string; content: string };
+  issueKey: string;
+  llmApiKey: string;
+  llmProvider?: string;
+}): Promise<Requirement[]> {
+  // Import LLM client dynamically to avoid circular dependencies
+  const { extractRequirementsWithLLM } = await import('./llm-requirement-extractor');
+  
+  return extractRequirementsWithLLM({
+    description: params.description,
+    acceptanceCriteria: params.acceptanceCriteria,
+    fileContents: params.fileContents,
+    confluenceContent: params.confluenceContent,
+    issueKey: params.issueKey,
+    apiKey: params.llmApiKey,
+    provider: params.llmProvider,
+  });
+}
+
+/**
+ * Extract all requirements from combined context (Legacy regex-based)
+ * @deprecated Use extractAllRequirementsWithLLM for better accuracy
  */
 export function extractAllRequirements(params: {
   description?: string;

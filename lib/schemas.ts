@@ -51,16 +51,28 @@ export type ImageData = z.infer<typeof ImageDataSchema>;
 
 // Generate Request Schema
 export const GenerateRequestSchema = z.object({
-  issueKey: z.string().min(1, "Issue key is required"),
-  storyTitle: z.string().min(1, "Story title is required"),
-  description: z.string().min(1, "Description is required"),
+  issueKey: z.string().optional().default("STANDALONE"),
+  storyTitle: z.string().optional().default("Test Cases from Uploaded Content"),
+  description: z.string().optional().default(""),
   acceptanceCriteria: z.string().optional().default(""),
   additionalContext: z.string().optional().default(""),
   images: z.array(ImageDataSchema).optional(),
   modelConfig: ModelConfigSchema.optional().default({}),
   existingTestCases: z.array(TestCaseSchema).optional(),
   requirements: z.array(RequirementSchema).optional(),
-});
+}).refine(
+  (data) => {
+    // Ensure either Jira issue (with description) OR additional content (files/confluence) is provided
+    const hasJiraContent = data.description && data.description.trim().length > 0;
+    const hasAdditionalContent = data.additionalContext && data.additionalContext.trim().length > 0;
+    const hasRequirements = data.requirements && data.requirements.length > 0;
+    
+    return hasJiraContent || hasAdditionalContent || hasRequirements;
+  },
+  {
+    message: "Either a Jira issue with description OR additional content (files/Confluence) OR requirements must be provided",
+  }
+);
 
 export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;
 
@@ -98,6 +110,7 @@ export const ParsedIssueSchema = z.object({
   acceptanceCriteria: z.string().optional(),
   issueType: z.string().optional(),
   status: z.string().optional(),
+  images: z.array(ImageDataSchema).optional(),
 });
 
 export type ParsedIssue = z.infer<typeof ParsedIssueSchema>;

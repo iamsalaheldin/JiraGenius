@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
       console.error(`[Confluence API] Error fetching page: ${result.error}`);
     } else {
       console.log(`[Confluence API] Successfully fetched page: ${result.page?.title}`);
+      console.log(`[Confluence API] Images found: ${result.page?.images?.length || 0}`);
+      if (result.page?.images && result.page.images.length > 0) {
+        console.log(`[Confluence API] Image filenames:`, result.page.images.map(img => img.filename));
+      }
     }
 
     if (result.error) {

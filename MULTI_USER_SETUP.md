@@ -2,13 +2,13 @@
 
 ## How Authentication Works
 
-The Jira Test Case Generator is designed for **multi-user environments** where different users need to authenticate with their own Jira credentials.
+The Jira Genius is designed for **multi-user environments** where different users need to authenticate with their own Jira credentials.
 
 ## Architecture
 
 ### What's Shared (Server-Side)
 - **LLM API Key**: Configured in `.env.local` on the server
-- All users share the same LLM provider (Gemini/OpenAI/Anthropic)
+- All users share the same LLM provider (Claude/Gemini/OpenAI)
 
 ### What's Individual (Client-Side)
 - **Jira Credentials**: Each user enters their own credentials
@@ -39,12 +39,13 @@ JIRA_EMAIL=
 JIRA_API_TOKEN=
 
 # LLM Configuration - SET THIS
-LLM_PROVIDER=gemini
+LLM_PROVIDER=anthropic
 
 # LLM API Key - SET THIS
-GEMINI_API_KEY=your-actual-gemini-api-key
+ANTHROPIC_API_KEY=your-actual-anthropic-api-key
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
+GEMINI_API_KEY=
 OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
 ```
 
 Then start the application:
@@ -64,7 +65,7 @@ Share these instructions with each user:
 
 1. Go to [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
 2. Click **"Create API token"**
-3. Give it a descriptive label (e.g., "Test Case Generator")
+3. Give it a descriptive label (e.g., "Jira Genius")
 4. Copy the generated token (you won't be able to see it again!)
 
 #### Step 2: Access the Application
@@ -150,9 +151,9 @@ User's Browser                 Your Server              External APIs
    ├──[Issue Data]─────────────────>│
    │                               │
    │                               ├──[Prompt + Server's LLM Key]──>│
-   │                               │                                 │ Gemini/
-   │                               │<──────[Generated Tests]─────────│ OpenAI/
-   │                               │                                 │ Anthropic
+   │                               │                                 │ Claude/
+   │                               │<──────[Generated Tests]─────────│ Gemini/
+   │                               │                                 │ OpenAI
    │<──[Generated Tests]───────────│
    │
 
@@ -253,8 +254,9 @@ If this occurs:
 **Vercel/Netlify:**
 ```bash
 # Set only the LLM API key in environment variables
-GEMINI_API_KEY=your-key
-LLM_PROVIDER=gemini
+ANTHROPIC_API_KEY=your-key
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
+LLM_PROVIDER=anthropic
 
 # Leave Jira variables empty
 JIRA_BASE_URL=
@@ -265,8 +267,9 @@ JIRA_API_TOKEN=
 **Docker:**
 ```dockerfile
 # In your Dockerfile, only include LLM env vars
-ENV LLM_PROVIDER=gemini
-ENV GEMINI_API_KEY=${GEMINI_API_KEY}
+ENV LLM_PROVIDER=anthropic
+ENV ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+ENV ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 ```
 
 ## FAQ

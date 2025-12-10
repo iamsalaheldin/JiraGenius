@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validation.data;
-    const provider = process.env.LLM_PROVIDER || "gemini";
+    const provider = process.env.LLM_PROVIDER || "anthropic";
 
     // Get API key for the selected provider
     const apiKey = getLLMApiKey(provider);

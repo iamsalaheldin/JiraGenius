@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit2, Trash2, Plus, Save, X, CheckCircle2, AlertCircle, Search, Filter } from "lucide-react";
+import { Edit2, Trash2, Plus, Save, X, CheckCircle2, AlertCircle, Search, Filter, FileText } from "lucide-react";
 import { Requirement } from "@/lib/schemas";
 import { toast } from "sonner";
 
@@ -166,16 +166,26 @@ export function RequirementsManager() {
   }
 
   return (
-    <Card>
+    <Card className="glass shadow-layered border-border/50 animate-fade-in">
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div>
-            <CardTitle>Requirements</CardTitle>
-            <CardDescription>
-              Review and manage extracted requirements. Edit, add, or delete requirements before generating test cases.
-            </CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+              <FileText className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">Requirements</CardTitle>
+              <CardDescription className="mt-1">
+                Review and manage extracted requirements. Edit, add, or delete requirements before generating test cases.
+              </CardDescription>
+            </div>
           </div>
-          <Button onClick={handleStartAdd} variant="outline" size="sm">
+          <Button 
+            onClick={handleStartAdd} 
+            variant="outline" 
+            size="sm"
+            className="hover-lift shadow-sm"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Requirement
           </Button>
@@ -342,7 +352,12 @@ export function RequirementsManager() {
               </Alert>
             ) : (
               filteredRequirements.map((req) => (
-              <Card key={req.id} className={editingId === req.id ? "border-primary" : ""}>
+              <Card 
+                key={req.id} 
+                className={`glass hover-lift border-border/50 transition-all ${
+                  editingId === req.id ? "border-primary shadow-layered-lg" : ""
+                }`}
+              >
                 <CardContent className="pt-6">
                   {editingId === req.id ? (
                     // Edit Mode
