@@ -34,7 +34,7 @@ export async function generateTestCases(
   params: GenerateTestCasesParams,
   apiKey: string
 ): Promise<LLMResponse> {
-  const provider = params.provider || process.env.LLM_PROVIDER || "gemini";
+  const provider = params.provider || process.env.LLM_PROVIDER || "anthropic";
   
   console.log(`[LLM] Generating test cases using ${provider}`);
   
@@ -110,13 +110,13 @@ function buildPrompt(params: GenerateTestCasesParams): string {
     : "";
 
   const requirementsSection = requirements && requirements.length > 0
-    ? `\n\n⚠️ CRITICAL REQUIREMENTS TO COVER:\n\nThe following requirements have been extracted and MUST be covered by the generated test cases. Each requirement should have at least one test case that validates it:\n\n${requirements.map((req, idx) => {
+    ? `\n\n⚠️ CRITICAL REQUIREMENTS TO COVER:\n\nThe following requirements have been extracted and MUST be covered by the generated test cases. You must generate AT LEAST ${requirements.length} test cases to ensure each requirement has dedicated test coverage:\n\n${requirements.map((req, idx) => {
         const sourceLabel = req.source === "user_story" ? "User Story" 
           : req.source === "acceptance_criteria" ? "Acceptance Criteria"
           : req.source === "file" ? "File"
           : "Confluence";
         return `${idx + 1}. [${req.id}] (${sourceLabel} - ${req.category} - ${req.priority} priority)\n   ${req.text}`;
-      }).join("\n\n")}\n\nIMPORTANT INSTRUCTIONS FOR REQUIREMENTS:\n- You MUST create test cases that explicitly cover EACH of the requirements listed above\n- For each requirement, create at least one test case that validates it\n- Include the requirement ID in the requirementIds array of the test case that covers it\n- If a test case covers multiple requirements, include all relevant requirement IDs\n- Prioritize test cases based on requirement priority (high priority requirements need high priority test cases)\n- Ensure comprehensive coverage - no requirement should be left without a test case\n\n`
+      }).join("\n\n")}\n\n🎯 CRITICAL INSTRUCTIONS FOR REQUIREMENTS COVERAGE:\n- You MUST create AT LEAST ONE DEDICATED test case for EACH requirement listed above\n- EACH TEST CASE SHOULD FOCUS ON VALIDATING ONLY ONE SPECIFIC REQUIREMENT\n- Include ONLY ONE requirement ID in the requirementIds array for each test case (e.g., ["REQ-123"])\n- DO NOT bundle multiple requirements into a single test case\n- Generate at least ${requirements.length} test cases to ensure 1:1 requirement-to-test-case mapping\n- Prioritize test cases based on requirement priority (high priority requirements need high priority test cases)\n- Ensure comprehensive coverage - no requirement should be left without its own dedicated test case\n- Keep test cases focused and specific to the single requirement they validate\n\n`
     : "";
   
   const additionalContextSection = additionalContext && additionalContext.trim()
@@ -172,15 +172,13 @@ Return your response as a valid JSON array matching this exact schema:
 
 Important:
 - Return ONLY valid JSON, no markdown code blocks or additional text
-- Generate comprehensive test cases covering ALL possible scenarios for the user story
-- Determine the appropriate number of test cases based on the complexity and requirements
+- Generate comprehensive test cases covering ALL possible scenarios for the user story${requirements && requirements.length > 0 ? `\n- **CRITICAL: Generate AT LEAST ${requirements.length} test cases to ensure each requirement has dedicated coverage**` : "\n- Determine the appropriate number of test cases based on the complexity and requirements"}
 - Each test case must have at least 1 step with clear actions and expected results
 - Ensure all IDs are unique${existingTestCases && existingTestCases.length > 0 ? " and different from existing test case IDs" : ""}
 - Make test cases specific, detailed, and thorough
 - Include preconditions where applicable
-- Set appropriate priority levels (low, medium, high) based on test case importance
-- Generate as many test cases as needed to ensure complete coverage of all scenarios${existingTestCases && existingTestCases.length > 0 ? "\n- Focus on generating NEW test cases that cover different scenarios than the existing ones" : ""}${requirements && requirements.length > 0 ? "\n- **CRITICAL: You MUST include the requirement ID(s) in the requirementIds array for each test case that covers a requirement. For example, if a test case covers requirement REQ-123, include ['REQ-123'] in the requirementIds field.**" : ""}
-- The requirementIds field should contain the IDs of requirements that the test case covers. If no requirements are provided, it can be an empty array [].`;
+- Set appropriate priority levels (low, medium, high) based on test case importance${requirements && requirements.length > 0 ? "\n- **CRITICAL: Each test case should focus on validating ONLY ONE requirement**\n- **CRITICAL: Include ONLY ONE requirement ID in the requirementIds array (e.g., [\"REQ-123\"])**\n- **CRITICAL: Do NOT bundle multiple requirements into a single test case - create separate focused test cases instead**" : "\n- Generate as many test cases as needed to ensure complete coverage of all scenarios"}${existingTestCases && existingTestCases.length > 0 ? "\n- Focus on generating NEW test cases that cover different scenarios than the existing ones" : ""}
+- The requirementIds field should contain exactly ONE requirement ID that the test case validates. If no requirements are provided, it can be an empty array [].`;
 }
 
 /**
@@ -323,6 +321,12 @@ async function callAnthropic(
 ): Promise<string> {
   const anthropic = new Anthropic({ apiKey });
   
+  // Get model name from environment variable if specified, otherwise use claude-sonnet-4-5-20250929
+  const env = process.env;
+  const modelName = env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929"; // Default to claude-sonnet-4-5-20250929
+  
+  console.log(`[Anthropic] Using model: ${modelName}`);
+  
   // Build content array with text and images
   const content: Array<{ type: "text" | "image"; text?: string; source?: { type: string; media_type: string; data: string } }> = [];
   
@@ -347,7 +351,7 @@ async function callAnthropic(
   });
   
   const message = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
+    model: modelName,
     max_tokens: 4096,
     temperature: 0.3,
     messages: [

@@ -140,16 +140,26 @@ export function TraceabilityMatrix() {
   }
 
   return (
-    <Card>
+    <Card className="glass shadow-layered border-border/50 animate-fade-in">
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div>
-            <CardTitle>Traceability Matrix</CardTitle>
-            <CardDescription>
-              Map requirements to test cases. Click cells to link/unlink requirements and test cases.
-            </CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+              <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">Traceability Matrix</CardTitle>
+              <CardDescription className="mt-1">
+                Map requirements to test cases. Click cells to link/unlink requirements and test cases.
+              </CardDescription>
+            </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExport}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExport}
+            className="hover-lift shadow-sm"
+          >
             <Download className="h-4 w-4 mr-2" />
             Export Matrix
           </Button>
@@ -160,15 +170,15 @@ export function TraceabilityMatrix() {
         <div className="space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="search">Search Requirements</Label>
+              <Label htmlFor="search" className="text-sm font-medium">Search Requirements</Label>
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
+                  className="pl-10 transition-all focus:ring-2 focus:ring-primary/50"
                 />
               </div>
             </div>
@@ -220,20 +230,20 @@ export function TraceabilityMatrix() {
         </div>
 
         {/* Matrix Table */}
-        <div className="border rounded-lg overflow-auto max-h-[600px]">
+        <div className="border border-border/50 rounded-lg overflow-auto max-h-[600px] shadow-sm">
           <table className="w-full border-collapse">
-            <thead className="sticky top-0 bg-muted z-10">
+            <thead className="sticky top-0 glass-strong z-10 border-b border-border/50">
               <tr>
-                <th className="border p-2 text-left font-semibold min-w-[300px] sticky left-0 bg-muted z-20">
+                <th className="border-r border-border/50 p-3 text-left font-semibold min-w-[300px] sticky left-0 glass-strong z-20">
                   Requirement
                 </th>
                 {testCases.map((tc) => (
                   <th
                     key={tc.id}
-                    className="border p-2 text-center font-semibold min-w-[150px] max-w-[150px]"
+                    className="border-r border-border/50 p-3 text-center font-semibold min-w-[150px] max-w-[150px] last:border-r-0"
                     title={tc.title}
                   >
-                    <div className="truncate">{tc.id}</div>
+                    <div className="truncate font-mono text-xs">{tc.id}</div>
                     <div className="text-xs text-muted-foreground truncate mt-1">{tc.title}</div>
                   </th>
                 ))}
@@ -242,16 +252,19 @@ export function TraceabilityMatrix() {
             <tbody>
               {filteredRequirements.length === 0 ? (
                 <tr>
-                  <td colSpan={testCases.length + 1} className="border p-4 text-center text-muted-foreground">
+                  <td colSpan={testCases.length + 1} className="border border-border/50 p-8 text-center text-muted-foreground">
                     No requirements match the current filters.
                   </td>
                 </tr>
               ) : (
-                filteredRequirements.map((req) => {
+                filteredRequirements.map((req, index) => {
                   const isCovered = coveredRequirementIds.has(req.id);
                   return (
-                    <tr key={req.id} className="hover:bg-muted/50">
-                      <td className="border p-2 sticky left-0 bg-background z-10">
+                    <tr 
+                      key={req.id} 
+                      className={`hover:bg-muted/30 transition-colors ${index % 2 === 0 ? 'bg-card' : 'bg-muted/10'}`}
+                    >
+                      <td className="border-r border-border/50 p-3 sticky left-0 glass z-10">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-xs">
@@ -281,14 +294,16 @@ export function TraceabilityMatrix() {
                         return (
                           <td
                             key={`${req.id}-${tc.id}`}
-                            className="border p-2 text-center cursor-pointer hover:bg-primary/10 transition-colors"
+                            className="border-r border-border/50 p-3 text-center cursor-pointer hover:bg-primary/10 transition-all last:border-r-0 group/cell"
                             onClick={() => toggleRequirementLink(req.id, tc.id)}
                             title={isLinked ? "Click to unlink" : "Click to link"}
                           >
                             {isLinked ? (
-                              <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" />
+                              <div className="flex items-center justify-center">
+                                <CheckCircle2 className="h-6 w-6 text-green-500 group-hover/cell:scale-110 transition-transform" />
+                              </div>
                             ) : (
-                              <div className="h-5 w-5 border-2 border-dashed border-muted-foreground/30 rounded mx-auto" />
+                              <div className="h-6 w-6 border-2 border-dashed border-muted-foreground/30 rounded mx-auto group-hover/cell:border-primary/50 transition-colors" />
                             )}
                           </td>
                         );

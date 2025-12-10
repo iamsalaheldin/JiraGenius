@@ -13,11 +13,12 @@ const envSchema = z.object({
   XRAY_CLIENT_ID: optionalString,
   XRAY_CLIENT_SECRET: optionalString,
   // LLM provider configuration
-  LLM_PROVIDER: z.enum(["gemini", "openai", "anthropic"]).default("gemini"),
+  LLM_PROVIDER: z.enum(["gemini", "openai", "anthropic"]).default("anthropic"),
   GEMINI_API_KEY: optionalString,
   GEMINI_MODEL: optionalString, // Optional: specify Gemini model name (e.g., "gemini-pro", "models/gemini-pro")
   OPENAI_API_KEY: optionalString,
   ANTHROPIC_API_KEY: optionalString,
+  ANTHROPIC_MODEL: optionalString, // Optional: specify Anthropic model name (e.g., "claude-3-5-sonnet-20241022", "claude-sonnet-4-5-20250929")
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 

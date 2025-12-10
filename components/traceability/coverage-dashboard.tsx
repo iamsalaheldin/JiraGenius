@@ -76,44 +76,96 @@ export function CoverageDashboard() {
     return "text-red-600";
   };
 
+  // Calculate progress ring circumference
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const coverageOffset = circumference - (summary.coveragePercentage / 100) * circumference;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Overall Coverage Card */}
-      <Card>
+      <Card className="glass shadow-layered border-border/50">
         <CardHeader>
-          <CardTitle>Coverage Overview</CardTitle>
-          <CardDescription>
-            Test case coverage of extracted requirements
-          </CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+              <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">Coverage Overview</CardTitle>
+              <CardDescription className="mt-1">
+                Test case coverage of extracted requirements
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Requirements</p>
-              <p className="text-3xl font-bold">{summary.totalRequirements}</p>
+            {/* Total Requirements */}
+            <div className="glass rounded-xl p-6 border border-border/50 hover-lift">
+              <p className="text-sm text-muted-foreground mb-2">Total Requirements</p>
+              <p className="text-4xl font-bold text-foreground">{summary.totalRequirements}</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Covered</p>
-              <p className="text-3xl font-bold text-green-600">{summary.coveredRequirements}</p>
+            
+            {/* Covered */}
+            <div className="glass rounded-xl p-6 border border-green-500/20 bg-green-500/5 hover-lift">
+              <p className="text-sm text-muted-foreground mb-2">Covered</p>
+              <p className="text-4xl font-bold text-green-500">{summary.coveredRequirements}</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Uncovered</p>
-              <p className="text-3xl font-bold text-red-600">{summary.uncoveredRequirements}</p>
+            
+            {/* Uncovered */}
+            <div className="glass rounded-xl p-6 border border-red-500/20 bg-red-500/5 hover-lift">
+              <p className="text-sm text-muted-foreground mb-2">Uncovered</p>
+              <p className="text-4xl font-bold text-red-500">{summary.uncoveredRequirements}</p>
             </div>
-            <div className="space-y-2">
+            
+            {/* Coverage Percentage with Progress Ring */}
+            <div className="glass rounded-xl p-6 border border-border/50 hover-lift flex flex-col items-center justify-center gap-2">
               <p className="text-sm text-muted-foreground">Coverage</p>
-              <p className={`text-3xl font-bold ${getCoverageColor(summary.coveragePercentage)}`}>
-                {summary.coveragePercentage}%
-              </p>
+              <div className="relative inline-flex items-center justify-center">
+                <svg className="progress-ring w-28 h-28" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    className="text-muted opacity-20"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={coverageOffset}
+                    strokeLinecap="round"
+                    className={`transition-all duration-1000 ${
+                      summary.coveragePercentage >= 80
+                        ? "text-green-500"
+                        : summary.coveragePercentage >= 50
+                        ? "text-yellow-500"
+                        : "text-red-500"
+                    }`}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className={`text-3xl font-bold ${getCoverageColor(summary.coveragePercentage)}`}>
+                    {summary.coveragePercentage}%
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Coverage by Source */}
-      <Card>
+      <Card className="glass shadow-layered border-border/50">
         <CardHeader>
-          <CardTitle>Coverage by Source</CardTitle>
+          <CardTitle className="text-xl">Coverage by Source</CardTitle>
           <CardDescription>
             Requirements coverage broken down by source
           </CardDescription>
@@ -123,29 +175,34 @@ export function CoverageDashboard() {
             {Object.entries(summary.requirementsBySource).map(([source, data]) => {
               if (data.total === 0) return null;
               return (
-                <div key={source} className="space-y-2">
+                <div key={source} className="glass rounded-lg p-4 border border-border/50 hover-lift space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getSourceIcon(source as Requirement["source"])}
-                      <span className="font-medium">{getSourceLabel(source as Requirement["source"])}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                        {getSourceIcon(source as Requirement["source"])}
+                      </div>
+                      <span className="font-semibold">{getSourceLabel(source as Requirement["source"])}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
                         {data.covered}/{data.total}
                       </span>
-                      <Badge variant={data.percentage >= 80 ? "default" : data.percentage >= 50 ? "secondary" : "destructive"}>
+                      <Badge 
+                        variant={data.percentage >= 80 ? "default" : data.percentage >= 50 ? "secondary" : "destructive"}
+                        className="shadow-sm"
+                      >
                         {data.percentage}%
                       </Badge>
                     </div>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                     <div
-                      className={`h-2 rounded-full ${
+                      className={`h-3 rounded-full transition-all duration-1000 ${
                         data.percentage >= 80
-                          ? "bg-green-600"
+                          ? "bg-gradient-to-r from-green-500 to-emerald-500"
                           : data.percentage >= 50
-                          ? "bg-yellow-600"
-                          : "bg-red-600"
+                          ? "bg-gradient-to-r from-yellow-500 to-amber-500"
+                          : "bg-gradient-to-r from-red-500 to-orange-500"
                       }`}
                       style={{ width: `${data.percentage}%` }}
                     />
@@ -158,9 +215,9 @@ export function CoverageDashboard() {
       </Card>
 
       {/* Coverage by Category */}
-      <Card>
+      <Card className="glass shadow-layered border-border/50">
         <CardHeader>
-          <CardTitle>Coverage by Category</CardTitle>
+          <CardTitle className="text-xl">Coverage by Category</CardTitle>
           <CardDescription>
             Requirements coverage broken down by category
           </CardDescription>
@@ -170,26 +227,29 @@ export function CoverageDashboard() {
             {Object.entries(summary.requirementsByCategory).map(([category, data]) => {
               if (data.total === 0) return null;
               return (
-                <div key={category} className="space-y-2">
+                <div key={category} className="glass rounded-lg p-4 border border-border/50 hover-lift space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{getCategoryLabel(category as Requirement["category"])}</span>
+                    <span className="font-semibold">{getCategoryLabel(category as Requirement["category"])}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
                         {data.covered}/{data.total}
                       </span>
-                      <Badge variant={data.percentage >= 80 ? "default" : data.percentage >= 50 ? "secondary" : "destructive"}>
+                      <Badge 
+                        variant={data.percentage >= 80 ? "default" : data.percentage >= 50 ? "secondary" : "destructive"}
+                        className="shadow-sm"
+                      >
                         {data.percentage}%
                       </Badge>
                     </div>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                     <div
-                      className={`h-2 rounded-full ${
+                      className={`h-3 rounded-full transition-all duration-1000 ${
                         data.percentage >= 80
-                          ? "bg-green-600"
+                          ? "bg-gradient-to-r from-green-500 to-emerald-500"
                           : data.percentage >= 50
-                          ? "bg-yellow-600"
-                          : "bg-red-600"
+                          ? "bg-gradient-to-r from-yellow-500 to-amber-500"
+                          : "bg-gradient-to-r from-red-500 to-orange-500"
                       }`}
                       style={{ width: `${data.percentage}%` }}
                     />
@@ -203,33 +263,47 @@ export function CoverageDashboard() {
 
       {/* Uncovered Requirements */}
       {analysis.uncoveredRequirements.length > 0 && (
-        <Card>
+        <Card className="glass shadow-layered border-border/50">
           <CardHeader>
-            <CardTitle>Uncovered Requirements</CardTitle>
-            <CardDescription>
-              {analysis.uncoveredRequirements.length} requirement{analysis.uncoveredRequirements.length !== 1 ? "s" : ""} without test case coverage
-            </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Uncovered Requirements</CardTitle>
+                <CardDescription>
+                  {analysis.uncoveredRequirements.length} requirement{analysis.uncoveredRequirements.length !== 1 ? "s" : ""} without test case coverage
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {analysis.uncoveredRequirements.map((req) => (
-                <Alert key={req.id} variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
+                <Alert 
+                  key={req.id} 
+                  variant="destructive" 
+                  className="glass border-red-500/20 bg-red-500/5 animate-fade-in"
+                >
+                  <AlertCircle className="h-4 w-4 text-red-500" />
                   <AlertDescription>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <Badge variant="outline" className="text-xs shadow-sm">
                             {getSourceLabel(req.source)}
                           </Badge>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs shadow-sm">
                             {getCategoryLabel(req.category)}
                           </Badge>
-                          <Badge variant={req.priority === "high" ? "destructive" : req.priority === "medium" ? "default" : "secondary"} className="text-xs">
+                          <Badge 
+                            variant={req.priority === "high" ? "destructive" : req.priority === "medium" ? "default" : "secondary"} 
+                            className="text-xs shadow-sm"
+                          >
                             {req.priority}
                           </Badge>
                         </div>
-                        <p className="text-sm">{req.text}</p>
+                        <p className="text-sm leading-relaxed">{req.text}</p>
                       </div>
                     </div>
                   </AlertDescription>
@@ -242,9 +316,9 @@ export function CoverageDashboard() {
 
       {/* All Requirements Covered */}
       {analysis.uncoveredRequirements.length === 0 && summary.totalRequirements > 0 && (
-        <Alert>
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-600">
+        <Alert className="glass border-green-500/20 bg-green-500/5 animate-fade-in">
+          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <AlertDescription className="text-green-600 dark:text-green-400 font-semibold">
             Excellent! All {summary.totalRequirements} requirement{summary.totalRequirements !== 1 ? "s are" : " is"} covered by test cases.
           </AlertDescription>
         </Alert>

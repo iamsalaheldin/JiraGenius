@@ -1,4 +1,4 @@
-# Jira Test Case Generator - Project Summary
+# Jira Genius - Project Summary
 
 ## Implementation Status: ✅ Complete
 
@@ -24,9 +24,9 @@ A production-ready Next.js 15 application that generates AI-powered test cases f
 
 3. **AI-Powered Test Case Generation**
    - Support for 3 LLM providers:
-     - **Google Gemini** (default)
+     - **Anthropic Claude Sonnet 4.5** (default)
+     - Google Gemini (gemini-2.5-flash)
      - OpenAI (GPT-4o-mini)
-     - Anthropic (Claude 3.5 Sonnet)
    - Configurable generation:
      - Detail level: Concise or Detailed
      - Count: 3-7 test cases
@@ -74,9 +74,9 @@ A production-ready Next.js 15 application that generates AI-powered test cases f
 - **Forms**: React Hook Form + Zod validation
 - **Testing**: Vitest + React Testing Library
 - **LLM Integration**: 
+  - `@anthropic-ai/sdk` (Claude - Default)
   - `@google/generative-ai` (Gemini)
   - `openai` SDK
-  - `@anthropic-ai/sdk`
 
 ## File Structure
 
@@ -157,7 +157,7 @@ npm run test:watch    # Watch mode
    - Panels and blockquotes
    - Mentions and emojis
 
-2. **Multi-LLM Support**: Seamlessly switch between Gemini, OpenAI, and Anthropic with environment variable
+2. **Multi-LLM Support**: Seamlessly switch between Claude Sonnet 4.5, Gemini, and OpenAI with environment variable
 
 3. **Production-Ready Export**: CSV with UTF-8 BOM, proper escaping for commas/quotes/newlines
 
@@ -187,8 +187,8 @@ The following were intentionally excluded per requirements:
 ## Success Criteria Met
 
 ✅ All MVP requirements implemented
-✅ Gemini as default LLM provider
-✅ OpenAI and Anthropic support
+✅ Claude Sonnet 4.5 as default LLM provider
+✅ Gemini and OpenAI support
 ✅ Clean, modern UI
 ✅ Full CRUD operations on test cases
 ✅ CSV/JSON export with proper formatting
@@ -205,5 +205,5 @@ The application is fully functional and ready for local development use. For pro
 
 ---
 
-*Built by following the detailed implementation plan with Gemini as the primary LLM provider.*
+*Built by following the detailed implementation plan with Claude Sonnet 4.5 as the primary LLM provider.*
 

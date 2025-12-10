@@ -268,6 +268,7 @@ export async function fetchConfluencePageServer(
       if (typeof storageValue === 'string' && storageValue.trim().startsWith('<')) {
         isHtml = true;
         bodyContent = storageValue;
+        htmlContent = storageValue;
       } else {
         bodyContent = storageValue;
       }
@@ -282,12 +283,14 @@ export async function fetchConfluencePageServer(
           if (typeof viewValue === 'string' && viewValue.trim().startsWith('<')) {
             isHtml = true;
             bodyContent = viewValue;
+            htmlContent = viewValue;
           } else {
             bodyContent = viewValue;
           }
         } else if (typeof viewContent === 'string' && viewContent.trim().startsWith('<')) {
           isHtml = true;
           bodyContent = viewContent;
+          htmlContent = viewContent;
         } else {
           bodyContent = viewContent;
         }
@@ -310,6 +313,7 @@ export async function fetchConfluencePageServer(
       // It's already a string (might be plain text or HTML)
       if (bodyContent.trim().startsWith('<')) {
         htmlContent = bodyContent;
+        isHtml = true;
         content = htmlToPlainText(bodyContent);
       } else {
         content = bodyContent;
@@ -324,14 +328,44 @@ export async function fetchConfluencePageServer(
       return { error: "Page content is empty" };
     }
     
-    // Skip image extraction and processing - only use text content
-    // Images are not included to avoid API compatibility issues
+    // Extract and fetch images from Confluence page
+    let fetchedImages: ConfluenceImage[] = [];
+    
+    console.log(`[Confluence] HTML content available: ${!!htmlContent}, isHtml: ${isHtml}, content length: ${htmlContent.length}`);
+    
+    if (htmlContent && isHtml) {
+      // Extract image references from HTML
+      const imageRefs = extractImages(htmlContent, cleanBaseUrl);
+      
+      if (imageRefs.length > 0) {
+        console.log(`[Confluence] Found ${imageRefs.length} image(s) in page ${actualPageId}`);
+        
+        // Replace {pageId} placeholder with actual page ID
+        for (const imageRef of imageRefs) {
+          const imageUrl = imageRef.url.replace('{pageId}', actualPageId);
+          
+          // Fetch the image
+          const imageData = await fetchImageAsBase64(imageUrl, auth);
+          if (imageData) {
+            fetchedImages.push({
+              url: imageUrl,
+              filename: imageRef.filename,
+              base64: imageData.base64,
+              mimeType: imageData.mimeType,
+            });
+            console.log(`[Confluence] Successfully fetched image: ${imageRef.filename}`);
+          } else {
+            console.warn(`[Confluence] Failed to fetch image: ${imageRef.filename}`);
+          }
+        }
+      }
+    }
     
     return {
       page: {
         title,
         content,
-        // images: undefined - not fetching images
+        images: fetchedImages.length > 0 ? fetchedImages : undefined,
       },
     };
   } catch (error) {

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, CheckCircle2, Edit2, Save, X, Upload, FileText, Trash2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Edit2, Save, X, Upload, FileText, Trash2, Search, Link2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 const issueKeySchema = z.object({
@@ -29,6 +29,8 @@ interface IssueFetcherProps {
   onConfluenceContentChange?: (content: string, title?: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => void;
   savedDescription?: string;
   savedAcceptanceCriteria?: string;
+  savedConfluenceContent?: string;
+  savedConfluenceTitle?: string;
 }
 
 interface UploadedFile {
@@ -49,7 +51,9 @@ export function IssueFetcher({
   onFileContentChange,
   onConfluenceContentChange,
   savedDescription,
-  savedAcceptanceCriteria 
+  savedAcceptanceCriteria,
+  savedConfluenceContent,
+  savedConfluenceTitle
 }: IssueFetcherProps) {
   const { credentials } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +72,8 @@ export function IssueFetcher({
   const [confluenceError, setConfluenceError] = useState<string | null>(null);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [editedFileContent, setEditedFileContent] = useState<string>("");
+  const [expandedFiles, setExpandedFiles] = useState<boolean>(true);
+  const [expandedConfluence, setExpandedConfluence] = useState<boolean>(true);
 
   // Sync with saved values when they change externally
   useEffect(() => {
@@ -80,6 +86,21 @@ export function IssueFetcher({
       }
     }
   }, [savedDescription, savedAcceptanceCriteria, fetchedIssue]);
+
+  // Restore Confluence content from parent when a new issue is fetched
+  useEffect(() => {
+    if (fetchedIssue && savedConfluenceContent !== undefined && savedConfluenceContent.trim().length > 0) {
+      // Only restore if local state is empty (to avoid overwriting user edits or existing content)
+      if (!confluenceContent || confluenceContent.trim().length === 0) {
+        setConfluenceContent(savedConfluenceContent);
+        if (savedConfluenceTitle) {
+          setConfluenceTitle(savedConfluenceTitle);
+        }
+        // Also restore the URL if we can extract it from the title or if it's available
+        // (Note: We don't have the URL in saved state, so we'll leave it empty)
+      }
+    }
+  }, [fetchedIssue, savedConfluenceContent, savedConfluenceTitle, confluenceContent]);
 
   // Automatically update combined content whenever uploadedFiles or confluenceContent changes
   useEffect(() => {
@@ -151,18 +172,23 @@ export function IssueFetcher({
       setAcceptanceCriteria(initialAC);
       // Clear uploaded files when fetching new issue
       setUploadedFiles([]);
-      if (onFileContentChange) {
-        onFileContentChange("");
+      // Restore Confluence content from parent if it exists (user may have fetched it before)
+      if (savedConfluenceContent && savedConfluenceContent.trim().length > 0) {
+        setConfluenceContent(savedConfluenceContent);
+        if (savedConfluenceTitle) {
+          setConfluenceTitle(savedConfluenceTitle);
+        }
       }
-      // Clear Confluence content when fetching new issue
-      setConfluenceUrl("");
-      setConfluenceContent("");
-      setConfluenceTitle("");
-      if (onConfluenceContentChange) {
-        onConfluenceContentChange("");
-      }
+      // Don't call onFileContentChange("") here - let the useEffect handle it
+      // The useEffect will automatically update the combined content with just Confluence content
+      // (since files are now empty but Confluence content is preserved)
       onIssueFetched(result.issue);
       setError(null);
+      
+      // Show success message with image count if applicable
+      if (result.issue.images && result.issue.images.length > 0) {
+        toast.success(`Fetched issue with ${result.issue.images.length} image(s)`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch issue");
       setFetchedIssue(null);
@@ -409,6 +435,14 @@ export function IssueFetcher({
       }
 
       console.log("[Confluence] Fetched page:", result.page.title, "Content length:", result.page.content?.length);
+      console.log("[Confluence] Images in response:", result.page.images?.length || 0);
+      if (result.page.images && result.page.images.length > 0) {
+        console.log("[Confluence] Image details:", result.page.images.map(img => ({ 
+          filename: img.filename, 
+          mimeType: img.mimeType,
+          base64Length: img.base64?.length || 0 
+        })));
+      }
       
       if (!result.page.content || result.page.content.trim().length === 0) {
         const errorMsg = "Page content is empty";
@@ -438,11 +472,13 @@ export function IssueFetcher({
         onFileContentChange(combinedContent, fileData);
       }
       if (onConfluenceContentChange) {
-        // Pass title and content, skip images
-        onConfluenceContentChange(result.page.content, result.page.title, undefined);
+        // Pass title, content, and images
+        onConfluenceContentChange(result.page.content, result.page.title, result.page.images);
       }
       
-      toast.success(`Successfully fetched Confluence page: ${result.page.title}`);
+      // Show success message with image count if applicable
+      const imageCount = result.page.images?.length || 0;
+      toast.success(`Successfully fetched Confluence page: ${result.page.title}${imageCount > 0 ? ` (${imageCount} image(s))` : ''}`);
     } catch (err) {
       setConfluenceError(err instanceof Error ? err.message : "Failed to fetch Confluence page");
       toast.error("Failed to fetch Confluence page");
@@ -514,54 +550,71 @@ export function IssueFetcher({
   };
 
   return (
-    <Card>
+    <Card className="glass hover-lift shadow-layered border-border/50 animate-fade-in">
       <CardHeader>
-        <CardTitle>Fetch Jira User Story</CardTitle>
-        <CardDescription>
-          Enter a Jira issue key to fetch the user story details
-        </CardDescription>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+            <Search className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <div>
+            <CardTitle className="text-2xl">Fetch Jira User Story</CardTitle>
+            <CardDescription className="mt-1">
+              Enter a Jira issue key to fetch the user story details
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="flex gap-3">
             <div className="flex-1 space-y-2">
-              <Label htmlFor="issueKey">Issue Key</Label>
-              <Input
-                id="issueKey"
-                placeholder="e.g., PROJ-123"
-                {...register("issueKey")}
-                disabled={isLoading}
-                className="uppercase"
-              />
+              <Label htmlFor="issueKey" className="text-sm font-medium">Issue Key</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="issueKey"
+                  placeholder="e.g., PROJ-123"
+                  {...register("issueKey")}
+                  disabled={isLoading}
+                  className="uppercase pl-10 transition-all focus:ring-2 focus:ring-primary/50 focus:shadow-glow"
+                />
+              </div>
               {errors.issueKey && (
-                <p className="text-sm text-red-500">{errors.issueKey.message}</p>
+                <p className="text-sm text-destructive animate-fade-in">{errors.issueKey.message}</p>
               )}
             </div>
             <div className="flex items-end">
-              <Button type="submit" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="hover-lift shadow-glow hover:shadow-glow-accent transition-all"
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Fetching...
                   </>
                 ) : (
-                  "Fetch Issue"
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    Fetch Issue
+                  </>
                 )}
               </Button>
             </div>
           </div>
 
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="animate-fade-in border-destructive/50">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {fetchedIssue && (
-            <Alert>
+            <Alert className="glass border-green-500/20 bg-green-500/5 animate-fade-in">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <AlertDescription>
+              <AlertDescription className="text-green-600 dark:text-green-400">
                 Issue fetched successfully! You can now generate test cases.
               </AlertDescription>
             </Alert>
@@ -569,18 +622,22 @@ export function IssueFetcher({
         </form>
 
         {fetchedIssue && (
-          <div className="mt-6 space-y-4 border-t pt-6">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-semibold text-lg">{fetchedIssue.key}</h3>
-                {fetchedIssue.issueType && (
-                  <Badge variant="secondary">{fetchedIssue.issueType}</Badge>
-                )}
-                {fetchedIssue.status && (
-                  <Badge variant="outline">{fetchedIssue.status}</Badge>
-                )}
+          <div className="mt-6 space-y-6 border-t border-border/50 pt-6 animate-slide-up">
+            <div className="glass rounded-xl p-6 border border-border/50">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <h3 className="font-bold text-xl text-gradient">{fetchedIssue.key}</h3>
+                    {fetchedIssue.issueType && (
+                      <Badge variant="secondary" className="shadow-sm">{fetchedIssue.issueType}</Badge>
+                    )}
+                    {fetchedIssue.status && (
+                      <Badge variant="outline" className="shadow-sm">{fetchedIssue.status}</Badge>
+                    )}
+                  </div>
+                  <p className="text-lg font-semibold text-foreground">{fetchedIssue.summary}</p>
+                </div>
               </div>
-              <p className="text-xl font-medium">{fetchedIssue.summary}</p>
             </div>
 
             <div className="flex items-center justify-between mb-4">
@@ -667,14 +724,33 @@ export function IssueFetcher({
             )}
 
             {/* File Upload Section */}
-            <div className="mt-6 space-y-4 border-t pt-6">
+            <div className="mt-6 space-y-4 border-t border-border/50 pt-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg">Additional Context Files</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Upload PDF, DOCX, or TXT files to provide additional context for test case generation (max 10MB per file)
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                    <Upload className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Additional Context Files</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Upload PDF, DOCX, or TXT files to provide additional context (max 10MB per file)
+                    </p>
+                  </div>
                 </div>
+                {uploadedFiles.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExpandedFiles(!expandedFiles)}
+                    className="hover-lift"
+                  >
+                    {expandedFiles ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
               </div>
 
               {/* File Upload Area */}
@@ -682,10 +758,10 @@ export function IssueFetcher({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
                   isDragging
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                    ? "border-primary bg-primary/10 shadow-glow scale-[1.02]"
+                    : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/20"
                 }`}
               >
                 <input
@@ -698,11 +774,13 @@ export function IssueFetcher({
                 />
                 <label
                   htmlFor="file-upload"
-                  className="cursor-pointer flex flex-col items-center gap-2"
+                  className="cursor-pointer flex flex-col items-center gap-3"
                 >
-                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                    <Upload className="h-8 w-8 text-primary" />
+                  </div>
                   <div>
-                    <span className="text-sm font-medium text-primary">Click to upload</span>
+                    <span className="text-sm font-semibold text-primary">Click to upload</span>
                     <span className="text-sm text-muted-foreground"> or drag and drop</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -712,33 +790,59 @@ export function IssueFetcher({
               </div>
 
               {/* Uploaded Files List */}
-              {uploadedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">Uploaded Files:</h4>
-                  <div className="space-y-2">
+              {uploadedFiles.length > 0 && expandedFiles && (
+                <div className="space-y-3 mt-4 animate-slide-up">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Uploaded Files ({uploadedFiles.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {uploadedFiles.map((file) => (
                       <div
                         key={file.id}
-                        className="flex items-center justify-between p-3 bg-muted rounded-md"
+                        className="flex items-center justify-between p-4 glass rounded-lg border border-border/50 hover-lift group"
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            file.status === "success" 
+                              ? "bg-green-500/20 text-green-500" 
+                              : file.status === "error"
+                              ? "bg-red-500/20 text-red-500"
+                              : "bg-primary/20 text-primary"
+                          }`}>
+                            {file.status === "uploading" ? (
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : file.status === "success" ? (
+                              <CheckCircle2 className="h-5 w-5" />
+                            ) : (
+                              <FileText className="h-5 w-5" />
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{file.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(file.size / 1024).toFixed(2)} KB
+                            <p className="text-sm font-semibold truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span>{(file.size / 1024).toFixed(2)} KB</span>
                               {file.status === "uploading" && (
-                                <span className="ml-2">• Uploading...</span>
+                                <span className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                  Uploading...
+                                </span>
                               )}
                               {file.status === "success" && (
-                                <span className="ml-2 text-green-600">• Extracted</span>
+                                <span className="flex items-center gap-1 text-green-500">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Extracted
+                                </span>
                               )}
                               {file.status === "error" && (
-                                <span className="ml-2 text-red-600">• Error</span>
+                                <span className="flex items-center gap-1 text-red-500">
+                                  <AlertCircle className="h-3 w-3" />
+                                  Error
+                                </span>
                               )}
                             </p>
                             {file.error && (
-                              <p className="text-xs text-red-600 mt-1">{file.error}</p>
+                              <p className="text-xs text-red-500 mt-1 animate-fade-in">{file.error}</p>
                             )}
                           </div>
                         </div>
@@ -746,7 +850,7 @@ export function IssueFetcher({
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveFile(file.id)}
-                          className="flex-shrink-0"
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -829,14 +933,33 @@ export function IssueFetcher({
             </div>
 
             {/* Confluence Page Section */}
-            <div className="mt-6 space-y-4 border-t pt-6">
+            <div className="mt-6 space-y-4 border-t border-border/50 pt-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg">Confluence Page</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Enter a Confluence page URL to include its content as additional context for test case generation
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                    <Link2 className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Confluence Page</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Enter a Confluence page URL to include its content as additional context
+                    </p>
+                  </div>
                 </div>
+                {confluenceContent && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExpandedConfluence(!expandedConfluence)}
+                    className="hover-lift"
+                  >
+                    {expandedConfluence ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
               </div>
 
               {/* Confluence URL Input */}
@@ -867,6 +990,7 @@ export function IssueFetcher({
                     type="button"
                     onClick={handleFetchConfluence}
                     disabled={isFetchingConfluence || !confluenceUrl.trim()}
+                    className="hover-lift shadow-glow hover:shadow-glow-accent transition-all"
                   >
                     {isFetchingConfluence ? (
                       <>
@@ -874,15 +998,18 @@ export function IssueFetcher({
                         Fetching...
                       </>
                     ) : (
-                      "Fetch Page"
+                      <>
+                        <Link2 className="mr-2 h-4 w-4" />
+                        Fetch Page
+                      </>
                     )}
                   </Button>
                 </div>
               </div>
 
               {/* Fetched Confluence Content */}
-              {confluenceContent && (
-                <div className="space-y-4">
+              {confluenceContent && expandedConfluence && (
+                <div className="space-y-4 animate-slide-up">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-semibold">Page Content</h4>

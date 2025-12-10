@@ -1,6 +1,6 @@
-# Jira Test Case Generator - User Guide
+# Jira Genius - User Guide
 
-A comprehensive guide to using the Jira Test Case Generator to create, edit, and export AI-powered test cases.
+A comprehensive guide to using the Jira Genius to create, edit, and export AI-powered test cases.
 
 ## Table of Contents
 
@@ -45,7 +45,7 @@ Before you begin, ensure you have:
 
 1. Go to [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
 2. Click **"Create API token"**
-3. Give it a descriptive name (e.g., "Test Case Generator")
+3. Give it a descriptive name (e.g., "Jira Genius")
 4. Click **"Create"**
 5. **Copy the token immediately** - you won't be able to see it again!
 
