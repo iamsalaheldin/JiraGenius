@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthStore } from "@/store/auth-store";
 import { ParsedIssue } from "@/lib/schemas";
+import type { ConfluenceImage } from "@/lib/confluence-server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -437,7 +438,7 @@ export function IssueFetcher({
       console.log("[Confluence] Fetched page:", result.page.title, "Content length:", result.page.content?.length);
       console.log("[Confluence] Images in response:", result.page.images?.length || 0);
       if (result.page.images && result.page.images.length > 0) {
-        console.log("[Confluence] Image details:", result.page.images.map(img => ({ 
+        console.log("[Confluence] Image details:", result.page.images.map((img: ConfluenceImage) => ({ 
           filename: img.filename, 
           mimeType: img.mimeType,
           base64Length: img.base64?.length || 0 
