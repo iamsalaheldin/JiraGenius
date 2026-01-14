@@ -1,6 +1,15 @@
 import { TestCase } from "./schemas";
 import { JiraAuth } from "./schemas";
 
+// Jira user object from the API
+export interface JiraUser {
+  displayName?: string;
+  emailAddress?: string;
+  accountId?: string;
+  avatarUrls?: Record<string, string>;
+  active?: boolean;
+}
+
 /**
  * Validate Jira credentials by calling our backend API
  * This avoids CORS issues and browser limitations with Buffer API
@@ -9,7 +18,7 @@ export async function validateAuth(
   baseUrl: string,
   email: string,
   token: string
-): Promise<{ valid: boolean; user?: any; error?: string }> {
+): Promise<{ valid: boolean; user?: JiraUser; error?: string }> {
   try {
     const response = await fetch("/api/jira/auth/validate", {
       method: "POST",

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, AlertCircle, Filter, Search, Download } from "lucide-react";
+import { CheckCircle2, XCircle, Search, Download } from "lucide-react";
 import { Requirement } from "@/lib/schemas";
 import { downloadTraceabilityMatrix } from "@/lib/traceability-export";
 
@@ -184,6 +184,7 @@ export function TraceabilityMatrix() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="source-filter">Source</Label>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Select component value type */}
               <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as any)}>
                 <SelectTrigger id="source-filter">
                   <SelectValue />
@@ -199,6 +200,7 @@ export function TraceabilityMatrix() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="category-filter">Category</Label>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Select component value type */}
               <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
                 <SelectTrigger id="category-filter">
                   <SelectValue />
@@ -215,6 +217,7 @@ export function TraceabilityMatrix() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="coverage-filter">Coverage</Label>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Select component value type */}
               <Select value={coverageFilter} onValueChange={(v) => setCoverageFilter(v as any)}>
                 <SelectTrigger id="coverage-filter">
                   <SelectValue />

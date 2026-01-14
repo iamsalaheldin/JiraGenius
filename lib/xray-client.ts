@@ -92,19 +92,6 @@ function extractProjectKey(issueKey: string): string {
 }
 
 /**
- * Convert test steps to X-Ray format
- * X-Ray Cloud uses a custom field for test steps
- * The exact field ID varies, but we'll try to use the standard format
- */
-function convertStepsToXRayFormat(steps: TestCase["steps"]): XRayTestStep[] {
-  return steps.map((step, index) => ({
-    index: index + 1,
-    action: step.action,
-    result: step.expectedResult,
-  }));
-}
-
-/**
  * Create a test issue in Jira with X-Ray format
  * Attempts to discover the test steps field and include steps in the initial creation
  */
@@ -149,6 +136,7 @@ export async function createTest(
     }));
 
     // Create test issue payload
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira API payload has dynamic custom fields
     const payload: any = {
       fields: {
         project: {
@@ -284,12 +272,14 @@ async function discoverTestStepsFieldIdFromCreateMeta(
     if (data.projects && data.projects.length > 0) {
       const project = data.projects[0];
       if (project.issuetypes && project.issuetypes.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira API metadata has dynamic structure
         const testIssueType = project.issuetypes.find((it: any) => it.name === "Test");
         if (testIssueType && testIssueType.fields) {
           const fields = testIssueType.fields;
           
           // Look for test steps field by name
           for (const [fieldKey, fieldData] of Object.entries(fields)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira field metadata has dynamic structure
             const field = fieldData as any;
             const fieldName = (field.name || "").toLowerCase();
             const fieldSchema = field.schema || {};
@@ -347,6 +337,7 @@ async function discoverTestStepsFieldId(
       
       // Look for array or object fields that might be test steps
       for (const [fieldKey, fieldData] of Object.entries(fields)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira field metadata has dynamic structure
         const field = fieldData as any;
         const fieldName = (field.name || "").toLowerCase();
         const fieldType = field.schema?.type || "";
@@ -436,6 +427,7 @@ async function addTestStepsToXRay(
 
     // Update the test issue with test steps
     // Try the standard format first
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira API payload has dynamic custom fields
     const updatePayload: any = {
       fields: {
         [fieldId]: xraySteps,
@@ -455,6 +447,7 @@ async function addTestStepsToXRay(
     // If the standard format fails, try alternative formats
     if (!response.ok) {
       // Try with steps wrapped in a different structure (some Xray versions use this)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira API payload has dynamic custom fields
       const altPayload: any = {
         fields: {
           [fieldId]: {
@@ -506,6 +499,7 @@ async function getIssueLinkTypes(auth: JiraAuth): Promise<string[]> {
     if (response.ok) {
       const data = await response.json();
       if (data.issueLinkTypes && Array.isArray(data.issueLinkTypes)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira API link type has dynamic structure
         const linkTypes = data.issueLinkTypes.map((linkType: any) => linkType.name || linkType.id);
         console.log(`Available link types in Jira: ${linkTypes.join(", ")}`);
         return linkTypes;
@@ -621,7 +615,7 @@ async function tryCreateLink(
           return { success: true }; // Link already exists, treat as success
         }
       }
-    } catch (error) {
+    } catch {
       // Continue to next attempt
       continue;
     }
@@ -640,8 +634,6 @@ export async function linkTestToStory(
   auth: JiraAuth
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const cleanUrl = auth.baseUrl.replace(/\/$/, "");
-    
     // Get available link types
     const availableLinkTypes = await getIssueLinkTypes(auth);
     

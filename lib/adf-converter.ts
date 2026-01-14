@@ -7,14 +7,21 @@ interface ADFNode {
   type: string;
   content?: ADFNode[];
   text?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ADF attrs can contain arbitrary values
   attrs?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ADF mark attrs can contain arbitrary values
   marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+}
+
+interface ADFDocument {
+  type?: string;
+  content?: ADFNode[];
 }
 
 /**
  * Convert ADF document to plain text
  */
-export function adfToPlainText(doc: any): string {
+export function adfToPlainText(doc: string | ADFDocument | null | undefined): string {
   if (!doc) {
     return "";
   }
@@ -22,10 +29,6 @@ export function adfToPlainText(doc: any): string {
   // Handle string input (might already be plain text)
   if (typeof doc === "string") {
     return doc;
-  }
-
-  if (typeof doc !== "object") {
-    return "";
   }
 
   // Handle ADF document
@@ -146,7 +149,7 @@ function processHeading(node: ADFNode): string {
   if (!node.content) {
     return "";
   }
-  const level = node.attrs?.level || 1;
+  const level = (node.attrs?.level as number) || 1;
   const text = processInlineNodes(node.content);
   const prefix = "#".repeat(level);
   return `${prefix} ${text}`;
@@ -160,7 +163,7 @@ function processBulletList(node: ADFNode): string {
     return "";
   }
   return node.content
-    .map((item, index) => {
+    .map((item) => {
       const text = processNode(item);
       return text.split("\n").map((line, i) => 
         i === 0 ? `• ${line}` : `  ${line}`
@@ -244,7 +247,7 @@ function processPanel(node: ADFNode): string {
   if (!node.content) {
     return "";
   }
-  const panelType = node.attrs?.panelType || "info";
+  const panelType = (node.attrs?.panelType as string) || "info";
   const content = node.content.map((child) => processNode(child)).join("\n");
   return `[${panelType.toUpperCase()}]\n${content}`;
 }
@@ -286,15 +289,15 @@ function processMention(node: ADFNode): string {
  * Process an emoji
  */
 function processEmoji(node: ADFNode): string {
-  return node.attrs?.shortName || node.attrs?.text || "";
+  return (node.attrs?.shortName as string) || (node.attrs?.text as string) || "";
 }
 
 /**
  * Process a card (inline or block)
  */
 function processCard(node: ADFNode): string {
-  const url = node.attrs?.url || "";
-  const title = node.attrs?.title || url;
+  const url = (node.attrs?.url as string) || "";
+  const title = (node.attrs?.title as string) || url;
   return title ? `[${title}](${url})` : url;
 }
 

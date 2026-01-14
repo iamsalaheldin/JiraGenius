@@ -252,7 +252,7 @@ async function callOpenAIForExtraction(
 }
 
 /**
- * Call Anthropic Claude for requirement extraction
+ * Call Anthropic Claude for requirement extraction with streaming support
  */
 async function callAnthropicForExtraction(
   prompt: string,
@@ -264,9 +264,12 @@ async function callAnthropicForExtraction(
 
   console.log(`[Anthropic Extraction] Using model: ${modelName}`);
 
-  const message = await anthropic.messages.create({
+  // Use streaming to handle potentially long responses
+  let fullResponse = "";
+  
+  const stream = anthropic.messages.stream({
     model: modelName,
-    max_tokens: 16000, // Increased for large Confluence content
+    max_tokens: 32000, // Increased for large requirement extraction
     temperature: 0.2, // Lower temperature for more consistent extraction
     messages: [
       {
@@ -276,12 +279,14 @@ async function callAnthropicForExtraction(
     ],
   });
 
-  const responseContent = message.content[0];
-  if (responseContent.type === "text") {
-    return responseContent.text;
+  // Collect all text chunks from the stream
+  for await (const event of stream) {
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      fullResponse += event.delta.text;
+    }
   }
 
-  return "";
+  return fullResponse;
 }
 
 /**
@@ -343,6 +348,7 @@ function salvagePartialJSON(json: string): z.infer<typeof RequirementExtractionS
     const arrayStart = requirementsMatch.index! + requirementsMatch[0].length;
     const content = json.substring(arrayStart);
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Parsing incomplete JSON, structure validated later
     const requirements: any[] = [];
     let depth = 0;
     let currentObj = "";
@@ -389,7 +395,7 @@ function salvagePartialJSON(json: string): z.infer<typeof RequirementExtractionS
               if (obj.text && obj.source && obj.category && obj.priority) {
                 requirements.push(obj);
               }
-            } catch (e) {
+            } catch {
               // Skip invalid object
             }
             currentObj = "";

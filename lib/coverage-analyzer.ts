@@ -153,8 +153,6 @@ export function analyzeCoverage(testCases: TestCase[], requirements: Requirement
     }
   });
 
-  const requirementIds = Array.from(allRequirementIds);
-  
   // Calculate metrics
   const total = requirements.length;
   const covered = requirements.filter((r) => allRequirementIds.has(r.id)).length;

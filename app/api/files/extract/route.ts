@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- pdf-extraction has no TypeScript types
 const pdfExtraction = require("pdf-extraction");
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -61,7 +62,6 @@ export async function POST(request: NextRequest) {
         // Extract text based on file type
         let extractedText = "";
         const arrayBuffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
         const buffer = Buffer.from(arrayBuffer);
 
         if (fileName.endsWith(".pdf")) {

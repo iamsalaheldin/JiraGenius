@@ -1,14 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { TestCase, TestCaseSchema, ModelConfig, Requirement } from "./schemas";
+import { TestCase, TestCaseSchema, ModelConfig, Requirement, ImageData } from "./schemas";
 import { z } from "zod";
-
-export interface ImageData {
-  base64: string;
-  mimeType: string;
-  filename?: string;
-}
 
 export interface GenerateTestCasesParams {
   storyTitle: string;
@@ -110,14 +104,29 @@ function buildPrompt(params: GenerateTestCasesParams): string {
     : "";
 
   const requirementsSection = requirements && requirements.length > 0
-    ? `\n\n⚠️ CRITICAL REQUIREMENTS TO COVER:\n\nThe following requirements have been extracted and MUST be covered by the generated test cases. You must generate AT LEAST ${requirements.length} test cases to ensure each requirement has dedicated test coverage:\n\n${requirements.map((req, idx) => {
+    ? `\n\n⚠️ CRITICAL REQUIREMENTS TO COVER:\n\nThe following requirements have been extracted and MUST be covered by the generated test cases. You must generate AT LEAST ${requirements.length} test cases to ensure complete test coverage. Each requirement may need multiple test cases to cover all aspects (positive, negative, edge cases, data flow, etc.):\n\n${requirements.map((req, idx) => {
         const sourceLabel = req.source === "user_story" ? "User Story" 
           : req.source === "acceptance_criteria" ? "Acceptance Criteria"
           : req.source === "file" ? "File"
           : "Confluence";
         return `${idx + 1}. [${req.id}] (${sourceLabel} - ${req.category} - ${req.priority} priority)\n   ${req.text}`;
-      }).join("\n\n")}\n\n🎯 CRITICAL INSTRUCTIONS FOR REQUIREMENTS COVERAGE:\n- You MUST create AT LEAST ONE DEDICATED test case for EACH requirement listed above\n- EACH TEST CASE SHOULD FOCUS ON VALIDATING ONLY ONE SPECIFIC REQUIREMENT\n- Include ONLY ONE requirement ID in the requirementIds array for each test case (e.g., ["REQ-123"])\n- DO NOT bundle multiple requirements into a single test case\n- Generate at least ${requirements.length} test cases to ensure 1:1 requirement-to-test-case mapping\n- Prioritize test cases based on requirement priority (high priority requirements need high priority test cases)\n- Ensure comprehensive coverage - no requirement should be left without its own dedicated test case\n- Keep test cases focused and specific to the single requirement they validate\n\n`
+      }).join("\n\n")}\n\n🎯 MANDATORY RULES FOR TEST CASE GENERATION:\n\n1. ONE REQUIREMENT PER TEST CASE (STRICTLY ENFORCED):\n   - Each test case MUST validate ONLY ONE requirement - no exceptions\n   - The requirementIds array MUST contain EXACTLY ONE requirement ID (e.g., ["REQ-123"])\n   - DO NOT combine multiple requirements into a single test case\n   - DO NOT create test cases that validate multiple requirements simultaneously\n   - A single requirement may need MULTIPLE test cases to comprehensively cover all scenarios (positive, negative, edge cases, data flow, etc.)\n   - Each test case for a requirement should focus on a different aspect or scenario, but all should validate the same requirement\n   - Ensure ALL requirements are covered - each requirement must have at least one test case\n\n2. TEST CASE INDEPENDENCE (CRITICAL):\n   - Each test case MUST be completely independent and self-contained\n   - Test cases MUST NOT depend on the execution or results of other test cases\n   - Preconditions MUST NOT reference other test cases (e.g., "After TC-1 is executed")\n   - Preconditions should only describe system state, not test execution dependencies\n   - Each test case MUST be executable in isolation without requiring other test cases to run first\n   - Test cases can share common preconditions (like "User is logged in"), but must not depend on each other's execution\n\n3. SINGLE SCOPE PER TEST CASE:\n   - Each test case MUST have ONE clear, focused scope\n   - The test case title and steps MUST focus on validating a single, specific aspect\n   - Avoid creating test cases that test multiple features or behaviors\n   - If a requirement has multiple aspects, create separate test cases for each aspect, each linked to the same requirement ID\n\n4. COVERAGE REQUIREMENTS:\n   - Generate AT LEAST ${requirements.length} test cases (minimum one per requirement)\n   - Each requirement should have comprehensive coverage through multiple test cases when needed\n   - Prioritize test cases based on requirement priority (high priority requirements need high priority test cases)\n   - Each test case must thoroughly validate its assigned requirement\n\n`
     : "";
+  
+  const independenceSection = requirements && requirements.length > 0
+    ? `\n\n🔒 TEST CASE INDEPENDENCE REQUIREMENTS:\n\nEach test case you generate MUST be:\n- **Self-contained**: Can be executed independently without relying on other test cases\n- **Isolated**: Does not assume that another test case has already run\n- **Complete**: Contains all necessary preconditions within itself (not referencing other test cases)\n- **Focused**: Validates only ONE requirement with a single, clear scope\n\nBAD EXAMPLE (DO NOT DO THIS):\n- Test Case 1: "Create user account"\n- Test Case 2: "Login with user created in Test Case 1" ❌ (depends on Test Case 1)\n\nGOOD EXAMPLE (DO THIS):\n- Test Case 1: "Create user account" (precondition: none, validates requirement REQ-1)\n- Test Case 2: "Login with valid credentials" (precondition: "User account exists in system", validates requirement REQ-2) ✅ (independent)\n\nRemember: Preconditions describe SYSTEM STATE, not TEST EXECUTION DEPENDENCIES.\n\n`
+    : "";
+
+  // Check for data dictionary in additionalContext
+  const hasDataDictionary = additionalContext && (
+    additionalContext.toLowerCase().includes("data dictionary") ||
+    additionalContext.toLowerCase().includes("field definition") ||
+    additionalContext.toLowerCase().includes("validation rule") ||
+    additionalContext.match(/\b(field|column|attribute|property)\s*(name|type|format|validation|required|optional)/i) !== null ||
+    additionalContext.match(/\b(data\s*type|format|pattern|constraint|rule)\s*:/i) !== null
+  );
+
+  const comprehensiveGuidelinesSection = `\n\n📋 COMPREHENSIVE TEST CASE GENERATION GUIDELINES:\n\nGenerate test cases following these guidelines to ensure thorough coverage:\n\n1. SEPARATE TEST CONDITIONS:\n   - Create separate test cases for each test condition\n   - Never combine multiple test conditions in a single test case\n   - Each test case should focus on verifying exactly ONE condition or scenario\n   - If a requirement has multiple conditions, create separate test cases for each condition (all linked to the same requirement ID)\n\n${hasDataDictionary ? `2. DATA DICTIONARY COVERAGE:\n   - A data dictionary has been detected in the provided context\n   - Create test cases for EVERY item/field in the dictionary\n   - For each data field, create tests that verify:\n     * Valid inputs are accepted\n     * Invalid inputs are rejected with appropriate messages\n     * Required fields cannot be empty\n     * Optional fields can be left empty\n     * Field-specific validations work as expected\n   - Each field validation should be a separate test case\n   - Link test cases to the relevant requirement ID(s)\n\n` : `2. DATA DICTIONARY COVERAGE:\n   - If a data dictionary is provided in the context, create test cases for EVERY item in the dictionary\n   - For each data field, create tests that verify:\n     * Valid inputs are accepted\n     * Invalid inputs are rejected with appropriate messages\n     * Required fields cannot be empty\n     * Optional fields can be left empty\n     * Field-specific validations work as expected\n   - Each field validation should be a separate test case\n\n`}3. POSITIVE TEST CASES:\n   - Verify the core functionality works as expected under normal conditions\n   - Include at least 3-5 positive test cases that validate primary user flows\n   - Cover all acceptance criteria with at least one positive test case\n   - Test each valid input scenario separately\n   - Each positive test case should validate ONE requirement\n   - Create separate test cases for different positive scenarios (e.g., different valid inputs)\n\n4. NEGATIVE TEST CASES:\n   - Include scenarios where inputs are invalid, missing, or unexpected\n   - Create SEPARATE test cases for each type of invalid input\n   - Test error handling and validation mechanisms\n   - Verify appropriate error messages are displayed when failures occur\n   - Include at least 3-5 negative test cases\n   - Each negative test case should validate ONE requirement\n   - Create separate test cases for different error scenarios (e.g., invalid format, missing required field, out of range)\n\n5. EDGE CASES:\n   - Test boundary conditions (min/max values, empty sets, etc.)\n   - Include scenarios with unexpected user behavior\n   - Test performance under special circumstances (e.g., large data sets)\n   - Include at least 2-3 edge cases\n   - Create separate test cases for each boundary condition\n   - Each edge case test should validate ONE requirement\n   - Examples: minimum value, maximum value, empty string, null value, special characters\n\n6. DATA FLOW TESTING:\n   - Verify how data moves through the system from input to storage and output\n   - Create test cases that track data through the entire system workflow\n   - Verify data integrity is maintained throughout the process\n   - Test data transformations between different system components\n   - Test data persistence and retrieval operations\n   - Include at least 3-4 data flow test cases\n   - Each data flow test case should validate ONE requirement\n   - Create separate test cases for different data flow paths\n\n7. INTEGRATION POINTS:\n   - Test how the feature interacts with other components or systems\n   - Verify data flow between integrated components\n   - Include at least 1-2 integration test cases if applicable\n   - Each integration test case should validate ONE requirement\n   - Create separate test cases for different integration scenarios\n\nIMPORTANT NOTES:\n- All test cases must still follow the independence and single-scope rules\n- Each test case validates ONE requirement (indicated by requirementIds array)\n- A requirement can have multiple test cases covering different aspects (positive, negative, edge, data flow, etc.)\n- Ensure comprehensive coverage by applying all applicable guideline categories to each requirement\n`;
   
   const additionalContextSection = additionalContext && additionalContext.trim()
     ? (() => {
@@ -140,14 +149,21 @@ User Story: ${storyTitle}
 Description:
 ${description}
 
-${acceptanceCriteria ? `Acceptance Criteria:\n${acceptanceCriteria}\n` : ""}${requirementsSection}${additionalContextSection}${existingTestCasesSection}
+${acceptanceCriteria ? `Acceptance Criteria:\n${acceptanceCriteria}\n` : ""}${requirementsSection}${independenceSection}${comprehensiveGuidelinesSection}${additionalContextSection}${existingTestCasesSection}
 
-Analyze the user story thoroughly${additionalContext && additionalContext.includes("--- Confluence Page ---") ? " AND the Confluence page content" : ""}${requirements && requirements.length > 0 ? " AND the requirements listed above" : ""} and generate comprehensive test cases that cover all possible scenarios. Create detailed test cases with multiple steps and thorough validation for:
-- Happy path scenarios
-- Edge cases and boundary conditions
-- Error conditions and negative test cases
-- All acceptance criteria${requirements && requirements.length > 0 ? "\n- **ALL requirements listed above (CRITICAL - each requirement must have at least one test case)**" : ""}
-- Any implicit requirements or dependencies${additionalContext && additionalContext.includes("--- Confluence Page ---") ? "\n- **ALL scenarios, APIs, flows, and requirements described in the Confluence page content above**" : ""}
+Analyze the user story thoroughly${additionalContext && additionalContext.includes("--- Confluence Page ---") ? " AND the Confluence page content" : ""}${requirements && requirements.length > 0 ? " AND the requirements listed above" : ""} and generate comprehensive test cases following the COMPREHENSIVE TEST CASE GENERATION GUIDELINES provided above.
+
+Apply the guidelines to ensure complete coverage:
+- Follow the "Separate Test Conditions" guideline - create separate test cases for each condition
+${hasDataDictionary ? "- Apply the \"Data Dictionary Coverage\" guideline - create test cases for every field detected in the data dictionary\n" : ""}- Apply the "Positive Test Cases" guideline - include at least 3-5 positive test cases covering primary user flows
+- Apply the "Negative Test Cases" guideline - include at least 3-5 negative test cases for invalid inputs and error scenarios
+- Apply the "Edge Cases" guideline - include at least 2-3 edge cases testing boundary conditions
+- Apply the "Data Flow Testing" guideline - include at least 3-4 test cases tracking data through the system
+- Apply the "Integration Points" guideline - include at least 1-2 integration test cases if applicable
+- Cover all acceptance criteria${requirements && requirements.length > 0 ? "\n- **ALL requirements listed above (CRITICAL - each requirement must have at least one test case, and may need multiple to cover all guideline categories)**" : ""}
+- Cover any implicit requirements or dependencies${additionalContext && additionalContext.includes("--- Confluence Page ---") ? "\n- **ALL scenarios, APIs, flows, and requirements described in the Confluence page content above**" : ""}
+
+Remember: Each test case must validate ONE requirement, but a requirement can have multiple test cases covering different aspects (positive, negative, edge cases, data flow, etc.).
 
 Return your response as a valid JSON array matching this exact schema:
 
@@ -171,13 +187,13 @@ Return your response as a valid JSON array matching this exact schema:
 }
 
 Important:
-- Return ONLY valid JSON, no markdown code blocks or additional text
-- Generate comprehensive test cases covering ALL possible scenarios for the user story${requirements && requirements.length > 0 ? `\n- **CRITICAL: Generate AT LEAST ${requirements.length} test cases to ensure each requirement has dedicated coverage**` : "\n- Determine the appropriate number of test cases based on the complexity and requirements"}
+- Return ONLY valid JSON, no markdown code blocks or additional text${requirements && requirements.length > 0 ? `\n- **MANDATORY: Generate AT LEAST ${requirements.length} test cases (minimum one per requirement, but may need more to cover all guideline categories)**` : "\n- Determine the appropriate number of test cases based on the complexity and requirements, following the Comprehensive Test Case Generation Guidelines"}
+- Follow the COMPREHENSIVE TEST CASE GENERATION GUIDELINES provided above to ensure thorough coverage
 - Each test case must have at least 1 step with clear actions and expected results
 - Ensure all IDs are unique${existingTestCases && existingTestCases.length > 0 ? " and different from existing test case IDs" : ""}
 - Make test cases specific, detailed, and thorough
-- Include preconditions where applicable
-- Set appropriate priority levels (low, medium, high) based on test case importance${requirements && requirements.length > 0 ? "\n- **CRITICAL: Each test case should focus on validating ONLY ONE requirement**\n- **CRITICAL: Include ONLY ONE requirement ID in the requirementIds array (e.g., [\"REQ-123\"])**\n- **CRITICAL: Do NOT bundle multiple requirements into a single test case - create separate focused test cases instead**" : "\n- Generate as many test cases as needed to ensure complete coverage of all scenarios"}${existingTestCases && existingTestCases.length > 0 ? "\n- Focus on generating NEW test cases that cover different scenarios than the existing ones" : ""}
+- Include preconditions where applicable (but preconditions must describe system state, not test execution dependencies)
+- Set appropriate priority levels (low, medium, high) based on test case importance${requirements && requirements.length > 0 ? "\n- **MANDATORY: Each test case MUST validate ONLY ONE requirement**\n- **MANDATORY: The requirementIds array MUST contain EXACTLY ONE requirement ID (e.g., [\"REQ-123\"])**\n- **MANDATORY: DO NOT bundle multiple requirements into a single test case**\n- **MANDATORY: Each test case MUST be independent and executable in isolation**\n- **MANDATORY: Test cases MUST NOT depend on each other's execution**\n- **MANDATORY: Each test case MUST have a single, focused scope**\n- **MANDATORY: Apply all applicable guideline categories (positive, negative, edge cases, data flow, integration) to ensure comprehensive coverage**" : "\n- Generate as many test cases as needed to ensure complete coverage of all scenarios, following the Comprehensive Test Case Generation Guidelines"}${existingTestCases && existingTestCases.length > 0 ? "\n- Focus on generating NEW test cases that cover different scenarios than the existing ones" : ""}
 - The requirementIds field should contain exactly ONE requirement ID that the test case validates. If no requirements are provided, it can be an empty array [].`;
 }
 
@@ -203,7 +219,7 @@ async function callGemini(
         temperature: 0.3,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 8192,
+        // No maxOutputTokens limit - use model's maximum capacity
       },
     });
     
@@ -300,18 +316,19 @@ async function callOpenAI(
       },
       {
         role: "user",
-        content: content as any, // OpenAI SDK accepts mixed content array
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- OpenAI SDK accepts mixed content array
+        content: content as any,
       }
     ],
     temperature: 0.3,
-    max_tokens: 4096,
+    // No max_tokens limit - use model's maximum capacity
   });
   
   return completion.choices[0]?.message?.content || "";
 }
 
 /**
- * Call Anthropic Claude API
+ * Call Anthropic Claude API with streaming support for long responses
  */
 async function callAnthropic(
   prompt: string,
@@ -350,24 +367,30 @@ async function callAnthropic(
     text: prompt,
   });
   
-  const message = await anthropic.messages.create({
+  // Use streaming to handle long responses (required for operations > 10 minutes)
+  let fullResponse = "";
+  
+  const stream = anthropic.messages.stream({
     model: modelName,
-    max_tokens: 4096,
+    max_tokens: 64000, // Maximum allowed for Claude Sonnet 4.5 (required parameter)
     temperature: 0.3,
     messages: [
       {
         role: "user",
-        content: content as any, // Anthropic SDK accepts mixed content array
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK accepts mixed content array
+        content: content as any,
       }
     ],
   });
   
-  const responseContent = message.content[0];
-  if (responseContent.type === "text") {
-    return responseContent.text;
+  // Collect all text chunks from the stream
+  for await (const event of stream) {
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      fullResponse += event.delta.text;
+    }
   }
   
-  return "";
+  return fullResponse;
 }
 
 /**
@@ -504,7 +527,7 @@ function extractValidTestCases(json: string): TestCase[] | null {
     }
     
     // Find the opening bracket of the array
-    let searchStart = arrayStart !== -1 ? arrayStart : json.indexOf('testCases');
+    const searchStart = arrayStart !== -1 ? arrayStart : json.indexOf('testCases');
     const afterLabel = json.substring(searchStart);
     const bracketStart = afterLabel.indexOf('[');
     
@@ -572,7 +595,7 @@ function extractValidTestCases(json: string): TestCase[] | null {
                 }
                 testCases.push(obj as TestCase);
               }
-            } catch (e) {
+            } catch {
               // Skip invalid object, but continue trying
             }
             currentObj = '';
@@ -616,7 +639,7 @@ function extractValidTestCases(json: string): TestCase[] | null {
           }
           testCases.push(obj as TestCase);
         }
-      } catch (e) {
+      } catch {
         // Last object was too incomplete
       }
     }
@@ -637,7 +660,6 @@ function repairJSON(json: string): string {
   // Track state while parsing
   let inString = false;
   let escapeNext = false;
-  let depth = 0; // Track object/array depth
   let lastValidPos = -1;
   let braceDepth = 0;
   let bracketDepth = 0;
@@ -664,19 +686,15 @@ function repairJSON(json: string): string {
     if (!inString) {
       if (char === '{') {
         braceDepth++;
-        depth++;
       } else if (char === '}') {
         braceDepth--;
-        depth--;
         if (braceDepth === 0 && bracketDepth === 0) {
           lastValidPos = i;
         }
       } else if (char === '[') {
         bracketDepth++;
-        depth++;
       } else if (char === ']') {
         bracketDepth--;
-        depth--;
         if (braceDepth === 0 && bracketDepth === 0) {
           lastValidPos = i;
         }
@@ -781,14 +799,8 @@ function repairJSON(json: string): string {
     const testCaseMatches = repaired.match(/\{"id"\s*:\s*"[^"]+",[^}]*"priority"\s*:\s*"[^"]+"\s*\}/g);
     if (testCaseMatches && testCaseMatches.length > 0) {
       // Reconstruct with only complete test cases
-      const lastMatch = testCaseMatches[testCaseMatches.length - 1];
-      const lastMatchIndex = repaired.lastIndexOf(lastMatch);
-      if (lastMatchIndex !== -1) {
-        const validPortion = repaired.substring(0, lastMatchIndex + lastMatch.length);
-        // Try to close it properly
-        let testCases = testCaseMatches.map(m => m.trim()).join(',\n    ');
-        return `{\n  "testCases": [\n    ${testCases}\n  ]\n}`;
-      }
+      const testCasesStr = testCaseMatches.map(m => m.trim()).join(',\n    ');
+      return `{\n  "testCases": [\n    ${testCasesStr}\n  ]\n}`;
     }
   }
   
@@ -806,7 +818,7 @@ async function parseAndValidateResponse(responseText: string): Promise<LLMRespon
     }
     
     // Extract JSON from the response
-    let cleanedResponse = extractJSON(responseText);
+    const cleanedResponse = extractJSON(responseText);
     
     if (!cleanedResponse) {
       console.error("[LLM] Empty response after cleaning. Original:", responseText.substring(0, 200));
@@ -821,6 +833,7 @@ async function parseAndValidateResponse(responseText: string): Promise<LLMRespon
     }
     
     // Try parsing the JSON
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON.parse returns unknown, but we validate with Zod
     let parsed: any;
     try {
       parsed = JSON.parse(cleanedResponse);
@@ -832,7 +845,7 @@ async function parseAndValidateResponse(responseText: string): Promise<LLMRespon
       try {
         parsed = JSON.parse(repaired);
         console.log("[LLM] Successfully repaired and parsed JSON");
-      } catch (repairError) {
+      } catch {
         // If repair also fails, try to extract valid test cases as a last resort
         console.log("[LLM] Repair failed, attempting to extract valid test cases from partial JSON...");
         const extracted = extractValidTestCases(cleanedResponse);

@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { JiraAuth } from "@/lib/schemas";
-import { validateAuth } from "@/lib/jira-client";
+import { validateAuth, JiraUser } from "@/lib/jira-client";
 
 interface AuthState {
   isAuthenticated: boolean;
   credentials: JiraAuth | null;
-  user: any | null;
+  user: JiraUser | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthStore>()(
             set({ isAuthenticated: false, credentials: null, user: null });
             return false;
           }
-        } catch (error) {
+        } catch {
           set({ isAuthenticated: false, credentials: null, user: null });
           return false;
         }

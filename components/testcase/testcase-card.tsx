@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { TestCase, TestCaseSchema, TestStep } from "@/lib/schemas";
+import { TestCase, TestStep } from "@/lib/schemas";
 import { useTestCaseStore } from "@/store/testcase-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,20 +21,23 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
-  CheckCircle2,
-  AlertCircle,
-  XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
+
+// Partial schema for form validation (steps are managed separately)
+const TestCaseFormSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, "Title is required"),
+  preconditions: z.string().optional().default(""),
+  priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
+});
 
 interface TestCaseCardProps {
   testCase: TestCase;
   issueKey?: string | null;
 }
 
-export function TestCaseCard({ testCase, issueKey }: TestCaseCardProps) {
+export function TestCaseCard({ testCase }: TestCaseCardProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const {
     updateTestCase,
     deleteTestCase,
@@ -53,20 +56,46 @@ export function TestCaseCard({ testCase, issueKey }: TestCaseCardProps) {
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<z.input<typeof TestCaseSchema>>({
-    resolver: zodResolver(TestCaseSchema),
-    defaultValues: testCase,
+  } = useForm<z.input<typeof TestCaseFormSchema>>({
+    resolver: zodResolver(TestCaseFormSchema),
+    defaultValues: {
+      id: testCase.id,
+      title: testCase.title,
+      preconditions: testCase.preconditions || "",
+      priority: testCase.priority || "medium",
+    },
   });
 
-  const onSave = (data: z.input<typeof TestCaseSchema>) => {
-    updateTestCase(testCase.id, data as TestCase);
+  const onSave = (data: z.input<typeof TestCaseFormSchema>) => {
+    // Validate that steps have content (since steps are managed outside the form)
+    const hasEmptySteps = testCase.steps.some(
+      step => !step.action.trim() || !step.expectedResult.trim()
+    );
+    
+    if (hasEmptySteps) {
+      alert("Please fill in all step actions and expected results before saving.");
+      return;
+    }
+    
+    // Update with form data (title, preconditions) and keep current steps from store
+    updateTestCase(testCase.id, {
+      title: data.title,
+      preconditions: data.preconditions,
+      priority: data.priority,
+      steps: testCase.steps, // Use current steps from store
+    });
     setIsEditing(false);
     reset(data);
   };
 
   const onCancel = () => {
     setIsEditing(false);
-    reset(testCase);
+    reset({
+      id: testCase.id,
+      title: testCase.title,
+      preconditions: testCase.preconditions || "",
+      priority: testCase.priority || "medium",
+    });
   };
 
   const handleDelete = () => {

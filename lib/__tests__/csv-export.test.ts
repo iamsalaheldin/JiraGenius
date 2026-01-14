@@ -99,11 +99,12 @@ describe("exportToCSV", () => {
     expect(csv).toContain("TC-1,");
   });
 
-  it("should handle test case without priority", () => {
+  it("should handle test case with medium priority", () => {
     const testCase: TestCase = {
       id: "TC-1",
       title: "Test case",
       preconditions: "",
+      priority: "medium",
       steps: [
         {
           id: "step-1",
@@ -113,7 +114,7 @@ describe("exportToCSV", () => {
       ],
     };
     const csv = exportToCSV([testCase]);
-    expect(csv).toContain("medium"); // Default priority
+    expect(csv).toContain("medium");
   });
 
   it("should handle empty test cases array", () => {

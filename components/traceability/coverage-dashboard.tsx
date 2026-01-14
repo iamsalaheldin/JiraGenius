@@ -6,7 +6,7 @@ import { getCoverageSummary, analyzeCoverage } from "@/lib/coverage-analyzer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, XCircle, AlertCircle, FileText, ListChecks, Globe, Database } from "lucide-react";
+import { CheckCircle2, AlertCircle, FileText, ListChecks, Globe, Database } from "lucide-react";
 import { Requirement } from "@/lib/schemas";
 
 export function CoverageDashboard() {
