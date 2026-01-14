@@ -207,7 +207,7 @@ export function parseConfluenceUrl(url: string): { pageId: string; baseUrl: stri
       pageId: match[1],
       baseUrl,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -329,7 +329,7 @@ export async function fetchConfluencePageServer(
     }
     
     // Extract and fetch images from Confluence page
-    let fetchedImages: ConfluenceImage[] = [];
+    const fetchedImages: ConfluenceImage[] = [];
     
     console.log(`[Confluence] HTML content available: ${!!htmlContent}, isHtml: ${isHtml}, content length: ${htmlContent.length}`);
     

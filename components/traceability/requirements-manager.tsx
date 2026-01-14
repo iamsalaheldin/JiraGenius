@@ -211,6 +211,7 @@ export function RequirementsManager() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="filter-source">Filter by Source</Label>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Select component value type */}
                 <Select value={filterSource} onValueChange={(v) => setFilterSource(v as any)}>
                   <SelectTrigger id="filter-source">
                     <SelectValue />
@@ -226,6 +227,7 @@ export function RequirementsManager() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="filter-category">Filter by Category</Label>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Select component value type */}
                 <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as any)}>
                   <SelectTrigger id="filter-category">
                     <SelectValue />

@@ -101,7 +101,7 @@ export function extractRequirementsFromDescription(
   // If no structured requirements found, extract key sentences
   if (requirements.length === 0) {
     const sentences = description.split(/[.!?]+/).filter(s => s.trim().length > 20);
-    sentences.slice(0, 5).forEach((sentence, idx) => {
+    sentences.slice(0, 5).forEach((sentence) => {
       requirements.push({
         id: `REQ-${issueKey}-DESC-${++reqIndex}`,
         source: "user_story",
@@ -128,7 +128,6 @@ export function extractRequirementsFromAcceptanceCriteria(
   }
 
   const requirements: Requirement[] = [];
-  let reqIndex = 0;
 
   // Split by common delimiters
   const criteriaItems = acceptanceCriteria
@@ -286,7 +285,7 @@ export function extractRequirementsFromConfluence(
   const fileReqs = extractRequirementsFromFile(content, pageTitle, issueKey);
   
   // Convert file requirements to Confluence requirements
-  fileReqs.forEach((req, idx) => {
+  fileReqs.forEach((req) => {
     requirements.push({
       ...req,
       id: `REQ-${issueKey}-CONF-${++reqIndex}`,

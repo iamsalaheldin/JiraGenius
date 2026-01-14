@@ -110,6 +110,7 @@ export async function fetchIssueServer(
 /**
  * Parse Jira issue data into a simplified format
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira API response has dynamic structure
 async function parseJiraIssue(issue: any, auth: JiraAuth): Promise<ParsedIssue> {
   // Convert description from ADF to plain text
   let description = "";
@@ -125,6 +126,7 @@ async function parseJiraIssue(issue: any, auth: JiraAuth): Promise<ParsedIssue> 
   const attachments = issue.fields.attachment || [];
   
   // Filter for image attachments
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jira attachment objects have dynamic structure
   const imageAttachments = attachments.filter((att: any) => 
     att.mimeType && att.mimeType.startsWith('image/')
   );

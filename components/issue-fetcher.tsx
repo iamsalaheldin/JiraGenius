@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthStore } from "@/store/auth-store";
 import { ParsedIssue } from "@/lib/schemas";
-import type { ConfluenceImage } from "@/lib/confluence-server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, CheckCircle2, Edit2, Save, X, Upload, FileText, Trash2, Search, Link2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Edit2, Save, X, Upload, FileText, Trash2, Search, Link2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
 const issueKeySchema = z.object({
@@ -107,29 +106,18 @@ export function IssueFetcher({
   useEffect(() => {
     if (!onFileContentChange) return;
 
-    // Combine all files' content
     const allFileContent = uploadedFiles
       .filter((f) => f.status === "success" && f.content)
       .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
       .join("\n\n");
     
-    // Combine with Confluence content
     const combinedContent = [allFileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
-    
-    console.log("[IssueFetcher] useEffect: Updating combined content");
-    console.log("[IssueFetcher] useEffect: Files count:", uploadedFiles.length);
-    console.log("[IssueFetcher] useEffect: Files with content:", uploadedFiles.filter(f => f.status === "success" && f.content).length);
-    console.log("[IssueFetcher] useEffect: File content length:", allFileContent.length);
-    console.log("[IssueFetcher] useEffect: Confluence content length:", confluenceContent.length);
-    console.log("[IssueFetcher] useEffect: Combined content length:", combinedContent.length);
-    console.log("[IssueFetcher] useEffect: Combined content preview:", combinedContent.substring(0, 300));
     
     const fileData = uploadedFiles
       .filter((f) => f.status === "success" && f.content)
       .map((f) => ({ filename: f.name, content: f.content || "" }));
     onFileContentChange(combinedContent, fileData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedFiles, confluenceContent]);
+  }, [uploadedFiles, confluenceContent, onFileContentChange]);
 
   const {
     register,
@@ -289,30 +277,18 @@ export function IssueFetcher({
         return updatedFiles;
       });
 
-      // Combine ALL files' content (including existing ones) - do this outside state updater
       const allFileContent = updatedFiles
         .filter((f) => f.status === "success" && f.content)
         .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
         .join("\n\n");
       
-      // Combine with Confluence content
       const combinedContent = [allFileContent, confluenceContent].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
       
-      console.log("[IssueFetcher] Total uploaded files:", updatedFiles.length);
-      console.log("[IssueFetcher] Files with content:", updatedFiles.filter(f => f.status === "success" && f.content).length);
-      console.log("[IssueFetcher] All file content length:", allFileContent.length);
-      console.log("[IssueFetcher] Combined content length:", combinedContent.length);
-      console.log("[IssueFetcher] Combined content preview:", combinedContent.substring(0, 200));
-      
-      // Call the callback with the combined content - outside state updater to avoid React warning
       if (onFileContentChange) {
-        console.log("[IssueFetcher] Calling onFileContentChange with content length:", combinedContent.length);
         const fileData = updatedFiles
           .filter((f) => f.status === "success" && f.content)
           .map((f) => ({ filename: f.name, content: f.content || "" }));
         onFileContentChange(combinedContent, fileData);
-      } else {
-        console.warn("[IssueFetcher] WARNING: onFileContentChange callback is not provided!");
       }
 
       if (result.errors && result.errors.length > 0) {
@@ -435,16 +411,6 @@ export function IssueFetcher({
         return;
       }
 
-      console.log("[Confluence] Fetched page:", result.page.title, "Content length:", result.page.content?.length);
-      console.log("[Confluence] Images in response:", result.page.images?.length || 0);
-      if (result.page.images && result.page.images.length > 0) {
-        console.log("[Confluence] Image details:", result.page.images.map((img: ConfluenceImage) => ({ 
-          filename: img.filename, 
-          mimeType: img.mimeType,
-          base64Length: img.base64?.length || 0 
-        })));
-      }
-      
       if (!result.page.content || result.page.content.trim().length === 0) {
         const errorMsg = "Page content is empty";
         setConfluenceError(errorMsg);
@@ -457,14 +423,11 @@ export function IssueFetcher({
       setIsEditingConfluence(false);
       setConfluenceError(null);
       
-      // Combine with file content
       const fileContent = uploadedFiles
         .filter((f) => f.status === "success" && f.content)
         .map((f) => `--- File: ${f.name} ---\n${f.content}\n`)
         .join("\n\n");
       const combinedContent = [fileContent, result.page.content].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
-      
-      console.log("[Confluence] Combined content length:", combinedContent.length);
       
       if (onFileContentChange) {
         const fileData = uploadedFiles

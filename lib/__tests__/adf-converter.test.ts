@@ -323,6 +323,7 @@ describe("extractAcceptanceCriteria", () => {
 
   it("should handle empty or null input", () => {
     expect(extractAcceptanceCriteria("")).toBe("");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Testing edge case with null input
     expect(extractAcceptanceCriteria(null as any)).toBe("");
   });
 });

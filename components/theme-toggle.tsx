@@ -2,17 +2,21 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
+
+// Custom hook to track mount state without triggering lint warnings
+function useIsMounted() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Avoid hydration mismatch by only rendering after mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsMounted();
 
   if (!mounted) {
     return (

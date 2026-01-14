@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useAuthStore } from "@/store/auth-store";
 import { useTestCaseStore } from "@/store/testcase-store";
 import { useTraceabilityStore } from "@/store/traceability-store";
@@ -17,15 +17,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ParsedIssue, ModelConfig } from "@/lib/schemas";
-import { LogOut, CheckCircle2, AlertCircle, Edit2, FileText, Sparkles } from "lucide-react";
+import { LogOut, CheckCircle2, AlertCircle, Edit2, FileText, Sparkles, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 // Requirements are now extracted via API endpoint (/api/requirements/extract)
 import { autoLinkTestCasesToRequirements } from "@/lib/coverage-analyzer";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function Home() {
   const { isAuthenticated, logout, user } = useAuthStore();
-  const { setTestCases, testCases, updateTestCase } = useTestCaseStore();
-  const { setRequirements, requirements } = useTraceabilityStore();
+  const { setTestCases, testCases, clearTestCases } = useTestCaseStore();
+  const { setRequirements, requirements, clearRequirements } = useTraceabilityStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [currentIssue, setCurrentIssue] = useState<ParsedIssue | null>(null);
   const [editedDescription, setEditedDescription] = useState<string>("");
@@ -39,6 +40,7 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ filename: string; content: string }>>([]);
   const [showTraceability, setShowTraceability] = useState(false);
   const [showCoverageAndTraceability, setShowCoverageAndTraceability] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
   
   // Standalone mode state
   const [standaloneMode, setStandaloneMode] = useState(false);
@@ -47,14 +49,6 @@ export default function Home() {
   const [standaloneConfluenceTitle, setStandaloneConfluenceTitle] = useState("");
   const [standaloneUploadedFiles, setStandaloneUploadedFiles] = useState<Array<{ filename: string; content: string }>>([]);
 
-  // Debug: Track Confluence content state changes
-  useEffect(() => {
-    console.log("[Confluence State] State changed:", {
-      confluenceContentLength: confluenceContent?.length || 0,
-      confluenceTitle: confluenceTitle || "NO TITLE",
-      hasContent: confluenceContent && confluenceContent.trim().length > 0,
-    });
-  }, [confluenceContent, confluenceTitle]);
 
   // Check if there's any content available to proceed with test case generation
   const hasContent = currentIssue || 
@@ -64,56 +58,39 @@ export default function Home() {
                      uploadedFiles.length > 0 || 
                      standaloneUploadedFiles.length > 0;
 
+  // Check if there's any content to reset (for reset button visibility)
+  const hasContentToReset = hasContent || testCases.length > 0 || requirements.length > 0;
+
   const handleIssueFetched = (issue: ParsedIssue) => {
     setCurrentIssue(issue);
-    // Initialize edited values with fetched values
     setEditedDescription(issue.description || "");
     setEditedAcceptanceCriteria(issue.acceptanceCriteria || "");
-    // Extract images from Jira issue
     setJiraImages(issue.images || []);
-    // Clear file content when a new issue is fetched (but preserve Confluence content)
+    // Clear file content when a new issue is fetched (preserve Confluence content)
     setFileContent("");
     setUploadedFiles([]);
-    // Preserve Confluence content when a new issue is fetched - user may have fetched it before
-    // Don't clear: setConfluenceContent("");
-    // Don't clear: setConfluenceTitle("");
-    // Don't clear: setConfluenceImages([]);
-    // Clear previous test cases when a new issue is fetched
     setTestCases([], issue.key);
-    // Reset coverage and traceability view when new issue is fetched
     setShowCoverageAndTraceability(false);
     setShowTraceability(false);
-    // Disable standalone mode when Jira issue is fetched
     setStandaloneMode(false);
-    // Don't extract requirements automatically - wait for user to click the button
   };
 
   const handleContentChange = (description: string, acceptanceCriteria: string) => {
     setEditedDescription(description);
     setEditedAcceptanceCriteria(acceptanceCriteria);
-    // Reset coverage view when content changes - user needs to re-extract
     setShowCoverageAndTraceability(false);
     toast.success("Content updated successfully");
   };
 
-  const handleFileContentChange = (content: string, files?: Array<{ filename: string; content: string }>) => {
-    // Content already includes Confluence content if present (combined in IssueFetcher)
-    console.log("[FileContentChange] Received content length:", content.length);
-    console.log("[FileContentChange] Content preview:", content.substring(0, 200));
+  const handleFileContentChange = useCallback((content: string, files?: Array<{ filename: string; content: string }>) => {
     setFileContent(content);
     if (files) {
       setUploadedFiles(files);
-      // Reset coverage view when files change - user needs to re-extract
       setShowCoverageAndTraceability(false);
     }
-  };
+  }, []);
 
   const handleConfluenceContentChange = (content: string, title?: string, images?: Array<{ base64: string; mimeType: string; filename?: string }>) => {
-    console.log("[handleConfluenceContentChange] Called with:", {
-      contentLength: content?.length || 0,
-      title: title || "NO TITLE",
-      hasImages: !!images && images.length > 0,
-    });
     setConfluenceContent(content);
     if (title) {
       setConfluenceTitle(title);
@@ -121,13 +98,10 @@ export default function Home() {
     if (images) {
       setConfluenceImages(images);
     }
-    // Combine with file content
     const fileOnlyContent = fileContent.split("\n\n--- Confluence Page ---\n\n")[0] || fileContent;
     const combinedContent = [fileOnlyContent, content].filter(Boolean).join("\n\n--- Confluence Page ---\n\n");
     setFileContent(combinedContent);
-    // Reset coverage view when Confluence content changes - user needs to re-extract
     setShowCoverageAndTraceability(false);
-    console.log("[handleConfluenceContentChange] State updated - confluenceContent should now be set");
   };
 
   const handleStandaloneContentChange = useCallback((content: {
@@ -140,8 +114,6 @@ export default function Home() {
     setStandaloneConfluenceContent(content.confluenceContent);
     setStandaloneConfluenceTitle(content.confluenceTitle);
     setStandaloneUploadedFiles(content.uploadedFiles);
-    // Only enable standalone mode if there are actual uploaded files
-    // Don't enable it just for Confluence content - users should be able to use both components
     if (content.uploadedFiles && content.uploadedFiles.length > 0) {
       setStandaloneMode(true);
     }
@@ -198,47 +170,18 @@ export default function Home() {
       setIsExtracting(true);
       toast.info("Extracting requirements using AI...");
       
-      // Debug: Log state values before processing
-      console.log("[Extract Requirements] Initial state check:", {
-        confluenceContentState: confluenceContent ? `Length: ${confluenceContent.length}` : "EMPTY",
-        confluenceTitleState: confluenceTitle || "EMPTY",
-        standaloneConfluenceContentState: standaloneConfluenceContent ? `Length: ${standaloneConfluenceContent.length}` : "EMPTY",
-        standaloneConfluenceTitleState: standaloneConfluenceTitle || "EMPTY",
-        confluenceParam: confluence ? `Title: ${confluence.title}, Content length: ${confluence.content?.length || 0}` : "UNDEFINED",
-      });
-      
-      // Always prioritize current state for Confluence content if available, fallback to parameter
-      // Check both confluenceContent (from IssueFetcher) and standaloneConfluenceContent (from StandaloneContentFetcher)
+      // Prioritize state for Confluence content, fallback to parameter
       const hasConfluenceInState = confluenceContent && confluenceContent.trim().length > 0;
       const hasStandaloneConfluence = standaloneConfluenceContent && standaloneConfluenceContent.trim().length > 0;
       const hasConfluenceInParam = confluence && confluence.content && confluence.content.trim().length > 0;
       
-      // Use state if available (prioritize IssueFetcher's confluenceContent, then standalone, then parameter)
       const confluenceToUse = hasConfluenceInState
-        ? { 
-            title: confluenceTitle || "Confluence Page",  // Use default if title missing
-            content: confluenceContent 
-          }
+        ? { title: confluenceTitle || "Confluence Page", content: confluenceContent }
         : hasStandaloneConfluence
-          ? {
-              title: standaloneConfluenceTitle || "Confluence Page",
-              content: standaloneConfluenceContent
-            }
+          ? { title: standaloneConfluenceTitle || "Confluence Page", content: standaloneConfluenceContent }
           : hasConfluenceInParam
             ? confluence
             : undefined;
-      
-      // Critical debug: Log what we found
-      if (!confluenceToUse) {
-        console.warn("[Extract Requirements] WARNING: No Confluence content found!", {
-          stateHasContent: hasConfluenceInState,
-          stateContentLength: confluenceContent?.length || 0,
-          standaloneHasContent: hasStandaloneConfluence,
-          standaloneContentLength: standaloneConfluenceContent?.length || 0,
-          paramHasContent: hasConfluenceInParam,
-          paramContentLength: confluence?.content?.length || 0,
-        });
-      }
       
       const requestBody: {
         description?: string;
@@ -253,41 +196,14 @@ export default function Home() {
         issueKey: issue.key,
       };
       
-      // Only include confluenceContent if it has actual content
       if (confluenceToUse && confluenceToUse.content && confluenceToUse.content.trim().length > 0) {
         requestBody.confluenceContent = confluenceToUse;
       }
       
-      // Enhanced logging to debug
-      console.log("[Extract Requirements] State check:", {
-        confluenceContentExists: !!confluenceContent,
-        confluenceContentLength: confluenceContent?.length || 0,
-        confluenceTitleExists: !!confluenceTitle,
-        confluenceTitle: confluenceTitle || "N/A",
-        hasConfluenceInState,
-        confluenceToUse: confluenceToUse ? "YES" : "NO",
-      });
-      
-      console.log("[Extract Requirements] Request payload:", {
-        hasDescription: !!requestBody.description,
-        hasAcceptanceCriteria: !!requestBody.acceptanceCriteria,
-        fileCount: requestBody.fileContents?.length || 0,
-        hasConfluence: !!requestBody.confluenceContent,
-        confluenceTitle: requestBody.confluenceContent?.title || "N/A",
-        confluenceContentLength: requestBody.confluenceContent?.content?.length || 0,
-        confluenceContentPreview: requestBody.confluenceContent?.content?.substring(0, 100) || "N/A",
-      });
-      
-      // Log the actual JSON that will be sent
-      const requestBodyJson = JSON.stringify(requestBody);
-      console.log("[Extract Requirements] Final JSON payload:", requestBodyJson.substring(0, 500) + "...");
-      console.log("[Extract Requirements] JSON includes confluenceContent:", requestBodyJson.includes("confluenceContent"));
-      
-      // Call API to extract requirements using LLM
       const response = await fetch("/api/requirements/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: requestBodyJson,
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -316,7 +232,6 @@ export default function Home() {
       setIsExtracting(true);
       toast.info("Extracting requirements using AI...");
       
-      // Use provided overrides or fall back to standalone state
       const confluenceToUse = confluenceContentOverride || standaloneConfluenceContent;
       const confluenceTitleToUse = confluenceTitleOverride || standaloneConfluenceTitle;
       const filesToUse = filesOverride || standaloneUploadedFiles;
@@ -332,14 +247,6 @@ export default function Home() {
         issueKey: "STANDALONE",
       };
       
-      console.log("[Extract Requirements - Standalone] Request payload:", {
-        fileCount: requestBody.fileContents?.length || 0,
-        hasConfluence: !!requestBody.confluenceContent,
-        confluenceTitle: requestBody.confluenceContent?.title || "N/A",
-        confluenceContentLength: requestBody.confluenceContent?.content?.length || 0,
-      });
-      
-      // Call API to extract requirements using LLM
       const response = await fetch("/api/requirements/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -363,19 +270,15 @@ export default function Home() {
   };
 
   const handleGenerate = async (config: ModelConfig, append: boolean = false) => {
-    // Check if there's any content available
     if (!hasContent) {
       toast.error("Please fetch a Jira issue, upload content, or fetch a Confluence page first");
       return;
     }
 
-    // Get requirements from store (use the current/edited requirements, don't re-extract)
     const { requirements: currentRequirements } = useTraceabilityStore.getState();
     
     // Only extract requirements if none exist (first time generation)
-    // Otherwise, use the existing requirements (which may have been edited by the user)
     if (currentRequirements.length === 0) {
-      console.log("[Generate] No requirements found, extracting from content using LLM...");
       if (standaloneMode) {
         await extractRequirementsForStandalone();
       } else if (currentIssue) {
@@ -385,7 +288,6 @@ export default function Home() {
           confluenceContent ? { title: confluenceTitle, content: confluenceContent } : undefined
         );
       } else {
-        // No Jira issue but we have Confluence content or files
         const confluenceToUse = confluenceContent || standaloneConfluenceContent;
         const confluenceTitleToUse = confluenceTitle || standaloneConfluenceTitle;
         const filesToUse = uploadedFiles.length > 0 ? uploadedFiles : standaloneUploadedFiles;
@@ -394,15 +296,8 @@ export default function Home() {
           await extractRequirementsForStandalone(confluenceToUse, confluenceTitleToUse, filesToUse);
         }
       }
-      // Get fresh requirements after extraction
-      const { requirements: freshRequirements } = useTraceabilityStore.getState();
-      console.log("[Generate] Extracted requirements using LLM:", freshRequirements.length);
-    } else {
-      console.log("[Generate] Using existing requirements from store (may include user edits):", currentRequirements.length);
     }
 
-    // Get the appropriate content based on mode
-    // If no Jira issue, use standalone content or content from IssueFetcher (Confluence/files)
     let additionalContext: string;
     let issueKey: string;
     let storyTitle: string;
@@ -422,8 +317,6 @@ export default function Home() {
       description = editedDescription;
       acceptanceCriteria = editedAcceptanceCriteria;
     } else {
-      // No Jira issue but we have Confluence content or files from IssueFetcher
-      // Combine Confluence content and files
       const confluenceToUse = confluenceContent || standaloneConfluenceContent;
       const filesToUse = uploadedFiles.length > 0 ? uploadedFiles : standaloneUploadedFiles;
       const fileContentStr = filesToUse.map(f => `--- File: ${f.filename} ---\n${f.content}\n`).join("\n\n");
@@ -434,37 +327,21 @@ export default function Home() {
       acceptanceCriteria = "";
     }
     
-    console.log("[Generate] Mode:", standaloneMode ? "Standalone" : "Jira");
-    console.log("[Generate] Additional context length:", additionalContext.length);
-    console.log("[Generate] Additional context preview:", additionalContext.substring(0, 500));
-    
-    // Check if Confluence content is included
-    const hasConfluenceContent = additionalContext.includes("--- Confluence Page ---");
-    console.log("[Generate] Contains Confluence content:", hasConfluenceContent);
-    
     if (!additionalContext && !description) {
-      console.warn("[Generate] WARNING: No content provided for generation!");
       toast.error("Please provide content (Jira issue, files, or Confluence page) to generate test cases");
       return;
     }
 
-    // Get final requirements from store (either newly extracted or existing edited ones)
     const { requirements: finalRequirements } = useTraceabilityStore.getState();
-    console.log("[Generate] Requirements to send to LLM:", finalRequirements.length);
-    console.log("[Generate] Requirements:", finalRequirements.map(r => ({ id: r.id, text: r.text.substring(0, 50) })));
 
     try {
-      // Combine Jira and Confluence images
-      // Include images from all sources (Jira, Confluence from IssueFetcher, or Confluence from StandaloneContentFetcher)
       const allImages = [...jiraImages, ...confluenceImages].length > 0 
         ? [...jiraImages, ...confluenceImages] 
         : undefined;
       
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           issueKey,
           storyTitle,
@@ -484,11 +361,8 @@ export default function Home() {
         throw new Error(result.error || "Failed to generate test cases");
       }
 
-      // Auto-link requirements to test cases (use fresh requirements from store)
       const { requirements: freshRequirements } = useTraceabilityStore.getState();
       const linkedTestCases = autoLinkTestCasesToRequirements(result.testCases, freshRequirements);
-      
-      // Count how many requirements were linked
       const totalLinkedRequirements = linkedTestCases.reduce((sum, tc) => sum + (tc.requirementIds?.length || 0), 0);
       
       if (append) {
@@ -515,6 +389,36 @@ export default function Home() {
     setCurrentIssue(null);
     setTestCases([]);
     toast.info("Logged out successfully");
+  };
+
+  const handleResetApp = () => {
+    // Clear all local state
+    setCurrentIssue(null);
+    setEditedDescription("");
+    setEditedAcceptanceCriteria("");
+    setFileContent("");
+    setConfluenceContent("");
+    setConfluenceTitle("");
+    setConfluenceImages([]);
+    setJiraImages([]);
+    setUploadedFiles([]);
+    setStandaloneMode(false);
+    setStandaloneFileContent("");
+    setStandaloneConfluenceContent("");
+    setStandaloneConfluenceTitle("");
+    setStandaloneUploadedFiles([]);
+    setShowTraceability(false);
+    setShowCoverageAndTraceability(false);
+    setIsExtracting(false);
+
+    // Clear store state
+    clearTestCases();
+    clearRequirements();
+
+    // Close dialog
+    setShowResetDialog(false);
+
+    toast.success("Application reset successfully");
   };
 
   // Show login modal if not authenticated
@@ -646,6 +550,16 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              {hasContentToReset && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowResetDialog(true)} 
+                  className="hover-lift"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Reset</span>
+                </Button>
+              )}
               <Button variant="outline" onClick={handleLogout} className="hover-lift">
                 <LogOut className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Logout</span>
@@ -853,6 +767,32 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Application</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to reset? This will clear all fetched user stories, uploaded files, Confluence pages, test cases, and requirements. Your authentication will be preserved.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResetDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleResetApp}
+            >
+              Reset
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

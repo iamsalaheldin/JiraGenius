@@ -261,8 +261,6 @@ export function StandaloneContentFetcher({ onContentChange }: StandaloneContentF
         return;
       }
 
-      console.log("[Confluence] Fetched page:", result.page.title, "Content length:", result.page.content?.length);
-      
       if (!result.page.content || result.page.content.trim().length === 0) {
         const errorMsg = "Page content is empty";
         setConfluenceError(errorMsg);

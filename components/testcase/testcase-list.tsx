@@ -75,7 +75,7 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
     setIsGeneratingMore(true);
     try {
       await onGenerateMore({});
-    } catch (error) {
+    } catch {
       // Error is already handled in the parent component
     } finally {
       setIsGeneratingMore(false);
@@ -187,7 +187,7 @@ export function TestCaseList({ issueKey, onGenerateMore }: TestCaseListProps) {
             <DialogTitle>Clear All Test Cases?</DialogTitle>
             <DialogDescription>
               This will permanently remove all {testCases.length} test case{testCases.length !== 1 ? "s" : ""}. 
-              This action cannot be undone. Make sure you've exported your test cases if you need them later.
+              This action cannot be undone. Make sure you&apos;ve exported your test cases if you need them later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
